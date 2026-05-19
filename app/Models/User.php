@@ -44,4 +44,41 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function managedRigs(): HasMany
+    {
+        return $this->hasMany(Rig::class, 'manager_id');
+    }
+
+    public function dailyReports(): HasMany
+    {
+        return $this->hasMany(DailyReport::class, 'created_by');
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    public function hasRole(string $role): bool
+    {
+        return $this->role?->name === $role;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(Role::where('name', 'Admin')->first()->name);
+    }
+
+    public function isManager(): bool
+    {
+        return $this->hasRole(Role::where('name', 'Manager')->first()->name);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->is_active === true;
+    }
 }
