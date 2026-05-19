@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
-use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends BaseApiController
 {
@@ -16,21 +17,25 @@ class AuthController extends BaseApiController
 
     public function register(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'full_name' => ['nullable', 'string', 'max:255'],
-            'email'     => ['required', 'email', 'unique:users,email'],
-            'phone'     => ['nullable', 'string', 'max:20'],
-            'password'  => ['required', 'string', 'min:8'],
-        ]);
+        try {
+            $data = $request->validate([
+                'full_name' => ['nullable', 'string', 'max:255'],
+                'email' => ['required', 'email', 'unique:users,email'],
+                'phone' => ['nullable', 'string', 'max:20'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+            ]);
 
-        $user = User::create([
-            'full_name' => $data['full_name'],
-            'email'     => $data['email'],
-            'phone'     => $data['phone'] ?? null,
-            'password'  => Hash::make($data['password']),
-        ]);
+            $user = User::create([
+                'full_name' => $data['full_name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'password' => Hash::make($data['password']),
+            ]);
 
-        return $this->created($user, 'Registration successful. Please log in.');
+            return $this->created($user, 'Registration successful. Please log in.');
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        }
     }
     public function login(LoginRequest $request): JsonResponse
     {
