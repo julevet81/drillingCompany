@@ -1,0 +1,232 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Requests\Report\StoreDailyReportRequest;
+use App\Http\Requests\Report\UpdateDailyReportRequest;
+use App\Models\DailyReport;
+use App\Models\DailyReportTool;
+use App\Models\DailyReportEquipment;
+use App\Models\DailyReportEmployee;
+use App\Models\MaterialLog;
+use App\Models\RigMaterial;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class DailyReportController extends BaseApiController
+{
+    /** GET /api/daily-reports */
+    public function index(Request $request): JsonResponse
+    {
+        $query = DailyReport::with(['rig:id,name,code', 'author:id,full_name'])
+            ->withCount(['tools', 'reportEquipments', 'reportEmployees']);
+
+        if ($request->filled('rig_id'))  $query->where('rig_id', $request->rig_id);
+        if ($request->filled('date'))    $query->whereDate('report_date', $request->date);
+        if ($request->filled('status'))  $query->where('status', $request->status);
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('report_date', [$request->from, $request->to]);
+        }
+
+        if ($request->user()->isManager()) {
+            $query->whereHas('rig', fn ($q) => $q->where('manager_id', $request->user()->id));
+        }
+
+        $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
+
+        return $this->paginated($reports);
+    }
+
+    /** GET /api/daily-reports/summary */
+    public function summary(Request $request): JsonResponse
+    {
+        $date = $request->date ?? today()->toDateString();
+
+        $data = DailyReport::whereDate('report_date', $date)
+            ->selectRaw('COUNT(*) as total_reports, AVG(daily_progress) as avg_progress, SUM(workers_count) as total_personnel, SUM(fuel_consumption) as total_fuel')
+            ->first();
+
+        $avgBha = DailyReportTool::whereHas('report', fn ($q) => $q->whereDate('report_date', $date))
+            ->avg('total_length');
+
+        $totalMaterials = DailyReportTool::whereHas('report', fn ($q) => $q->whereDate('report_date', $date))
+            ->sum('quantity_used');
+
+        return $this->success([
+            'total_reports'    => (int) $data->total_reports,
+            'avg_progress_m'   => round($data->avg_progress ?? 0, 2),
+            'total_personnel'  => (int) $data->total_personnel,
+            'avg_bha_length_m' => round($avgBha ?? 0, 2),
+            'total_materials'  => (int) $totalMaterials,
+        ]);
+    }
+
+    /** POST /api/daily-reports */
+    public function store(StoreDailyReportRequest $request): JsonResponse
+    {
+        $report = DB::transaction(function () use ($request) {
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+            $data['created_by']     = $request->user()->id;
+            $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+
+            $report = DailyReport::create($data);
+
+            // BHA Tools
+            if ($request->filled('tools')) {
+                DailyReportTool::insert(collect($request->tools)->map(fn ($t) => [
+                    'report_id'        => $report->id,
+                    'drilling_tool_id' => $t['drilling_tool_id'],
+                    'quantity_used'    => $t['quantity_used'] ?? 0,
+                    'total_length'     => $t['total_length'] ?? 0,
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
+                ])->toArray());
+            }
+
+            // Equipments
+            if ($request->filled('equipments')) {
+                DailyReportEquipment::insert(collect($request->equipments)->map(fn ($e) => [
+                    'report_id'    => $report->id,
+                    'equipment_id' => $e['equipment_id'],
+                    'status'       => $e['status'] ?? 'Operational',
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ])->toArray());
+            }
+
+            // Shifts / attendance
+            if ($request->filled('shifts')) {
+                DailyReportEmployee::insert(collect($request->shifts)->map(fn ($s) => [
+                    'report_id'  => $report->id,
+                    'shift_id'   => $s['shift_id'],
+                    'present'    => $s['present'] ?? true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])->toArray());
+            }
+
+            // Material logs — update rig stock
+            if ($request->filled('materials')) {
+                foreach ($request->materials as $m) {
+                    $rigMaterial = RigMaterial::lockForUpdate()->findOrFail($m['rig_material_id']);
+
+                    $newQty = $rigMaterial->quantity
+                        - ($m['consumed'] ?? 0)
+                        + ($m['added'] ?? 0);
+
+                    if ($newQty < 0) {
+                        throw new \InvalidArgumentException(
+                            "Material '{$rigMaterial->materialType?->name}' stock insufficient."
+                        );
+                    }
+
+                    $rigMaterial->update(['quantity' => $newQty]);
+
+                    MaterialLog::create([
+                        'report_id'      => $report->id,
+                        'rig_material_id' => $rigMaterial->id,
+                        'log_date'       => $report->report_date,
+                        'consumed'       => $m['consumed'] ?? 0,
+                        'added'          => $m['added'] ?? 0,
+                        'remaining'      => $newQty,
+                    ]);
+                }
+            }
+
+            // Update rig current depth
+            $report->rig->update(['current_depth' => $data['depth_end']]);
+
+            return $report;
+        });
+
+        return $this->created(
+            $report->load(['tools.drillingTool.toolType', 'reportEquipments.equipment', 'rig:id,name,code']),
+            'Daily report created'
+        );
+    }
+
+    /** GET /api/daily-reports/{report} */
+    public function show(DailyReport $report): JsonResponse
+    {
+        $report->load([
+            'rig:id,name,code,location_id',
+            'rig.location:id,name',
+            'author:id,full_name',
+            'tools.drillingTool.toolType',
+            'reportEquipments.equipment',
+            'reportEmployees.shift.employees',
+            'materialLogs.rigMaterial.materialType',
+        ]);
+
+        return $this->success(array_merge($report->toArray(), [
+            'total_bha_length' => $report->total_bha_length,
+        ]));
+    }
+
+    /** PUT /api/daily-reports/{report} */
+    public function update(UpdateDailyReportRequest $request, DailyReport $report): JsonResponse
+    {
+        if ($report->status === 'approved') {
+            return $this->error('Cannot edit an approved report', 422);
+        }
+
+        DB::transaction(function () use ($request, $report) {
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+
+            if (isset($data['depth_start'], $data['depth_end'])) {
+                $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+            }
+
+            $report->update($data);
+
+            if ($request->filled('tools')) {
+                $report->tools()->delete();
+                DailyReportTool::insert(collect($request->tools)->map(fn ($t) => [
+                    'report_id'        => $report->id,
+                    'drilling_tool_id' => $t['drilling_tool_id'],
+                    'quantity_used'    => $t['quantity_used'] ?? 0,
+                    'total_length'     => $t['total_length'] ?? 0,
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
+                ])->toArray());
+            }
+        });
+
+        return $this->success($report->fresh(['tools', 'reportEquipments']), 'Report updated');
+    }
+
+    /** DELETE /api/daily-reports/{report} */
+    public function destroy(DailyReport $report): JsonResponse
+    {
+        if ($report->status === 'approved') {
+            return $this->error('Cannot delete an approved report', 422);
+        }
+        $report->delete($report->id);
+        return $this->success(null, 'Report deleted');
+    }
+
+    /** PATCH /api/daily-reports/{report}/submit */
+    public function submit(DailyReport $report): JsonResponse
+    {
+        if ($report->status !== 'draft') {
+            return $this->error('Only draft reports can be submitted', 422);
+        }
+        $report->update(['status' => 'submitted']);
+        return $this->success($report->only(['id', 'status']), 'Report submitted');
+    }
+
+    /** PATCH /api/daily-reports/{report}/approve */
+    public function approve(DailyReport $report, Request $request): JsonResponse
+    {
+        if (!$request->user()->isSuperAdmin()) {
+            return $this->forbidden('Only admins can approve reports');
+        }
+        if ($report->status !== 'submitted') {
+            return $this->error('Only submitted reports can be approved', 422);
+        }
+        $report->update(['status' => 'approved']);
+        return $this->success($report->only(['id', 'status']), 'Report approved');
+    }
+}
