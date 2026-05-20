@@ -19,17 +19,14 @@ class RigController extends BaseApiController
         $query = Rig::with(['location:id,name,state', 'manager:id,full_name'])
             ->withCount(['equipments', 'dailyReports']);
 
-        if ($request->filled('status'))      $query->where('status', $request->status);
-        if ($request->filled('location_id')) $query->where('location_id', $request->location_id);
+        // if ($request->filled('status'))      $query->where('status', $request->status);
+        // if ($request->filled('location_id')) $query->where('location_id', $request->location_id);
 
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(fn ($q) => $q->where('name', 'like', "%$s%")->orWhere('code', 'like', "%$s%"));
         }
 
-        if ($request->user()->isManager()) {
-            $query->where('manager_id', $request->user()->id);
-        }
 
         $rigs = $query->latest()->paginate($request->per_page ?? 15);
 

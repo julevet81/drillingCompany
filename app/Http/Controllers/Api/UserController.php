@@ -31,8 +31,8 @@ class UserController extends BaseApiController
         return $this->success([
             'total'    => User::count(),
             'active'   => User::where('is_active', true)->count(),
-            'admins'   => User::whereHas('role', fn ($q) => $q->where('name', Role::SUPER_ADMIN))->count(),
-            'managers' => User::whereHas('role', fn ($q) => $q->where('name', Role::WELL_MANAGER))->count(),
+            'admins'   => User::whereHas('role', fn ($q) => $q->where('name', 'Super_Admin'))->count(),
+            'managers' => User::whereHas('role', fn ($q) => $q->where('name', 'Rig_Manager'))->count(),
         ]);
     }
 
@@ -82,5 +82,12 @@ class UserController extends BaseApiController
     public function roles(): JsonResponse
     {
         return $this->success(Role::all());
+    }
+
+    public function assignRole(Request $request, User $user): JsonResponse
+    {
+        $request->validate(['role_id' => ['required', 'exists:roles,id']]);
+        $user->assignRole(Role::findById($request->role_id)->name);
+        return $this->success($user->fresh('role'), 'Role assigned');
     }
 }

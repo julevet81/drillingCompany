@@ -32,9 +32,9 @@ Route::prefix('auth')->group(function () {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// PROTECTED — Requires valid Sanctum token + active account
+// PROTECTED — Requires valid Sanctum token
 // ════════════════════════════════════════════════════════════════════════
-Route::middleware(['auth:sanctum', 'active_user'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Auth / Profile ────────────────────────────────────────────────
     Route::prefix('auth')->group(function () {
@@ -133,6 +133,7 @@ Route::middleware(['auth:sanctum', 'active_user'])->group(function () {
         Route::prefix('users')->group(function () {
             Route::get('stats',                   [UserController::class, 'stats']);
             Route::patch('{user}/toggle-active',  [UserController::class, 'toggleActive']);
+            Route::patch('{user}/assign-role',    [UserController::class, 'assignRole']);
         });
         Route::apiResource('users', UserController::class);
     });

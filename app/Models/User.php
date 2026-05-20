@@ -64,20 +64,20 @@ class User extends Authenticatable
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    public function hasRole(string $role): bool
-    {
-        return $this->role?->name === $role;
-    }
+    // public function hasRole(string $role): bool
+    // {
+    //     return $this->role?->name === $role;
+    // }
 
-    public function isSuperAdmin(): bool
-    {
-        return $this->hasRole(Role::where('name', 'Super_Admin')->first()->name);
-    }
+    // public function isSuperAdmin(): bool
+    // {
+    //     return $this->hasRole('Super_Admin');
+    // }
 
-    public function isManager(): bool
-    {
-        return $this->hasRole(Role::where('name', 'Rig_manager')->first()->name);
-    }
+    // public function isManager(): bool
+    // {
+    //     return $this->hasRole('Rig_manager');
+    // }
 
     public function isActive(): bool
     {
