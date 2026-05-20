@@ -75,7 +75,7 @@ class AuthController extends BaseApiController
     /** GET /api/auth/me */
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load('role', 'managedRigs:id,name,code');
+        $user = $request->user()->load('roles:id,name', 'managedRigs:id,name,code');
 
         return $this->success([
             'id'           => $user->id,
@@ -84,6 +84,7 @@ class AuthController extends BaseApiController
             'phone'        => $user->phone,
             'is_active'    => $user->is_active,
             'managed_rigs' => $user->managedRigs,
+            'roles'        => $user->roles->pluck('name')->values(),
             'created_at'   => $user->created_at?->format('Y-m-d'),
         ]);
     }

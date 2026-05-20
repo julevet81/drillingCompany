@@ -20,9 +20,8 @@ class EquipmentTest extends TestCase
     {
         parent::setUp();
         Role::create(['name' => 'super_admin']);
-        $this->admin = User::factory()->create([
-            'role_id' => Role::where('name', 'super_admin')->value('id'),
-        ]);
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('super_admin');
         $this->rig = Rig::factory()->create();
     }
 

@@ -4,7 +4,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreRigRequest extends FormRequest {
-    //public function authorize(): bool { return $this->user()->isSuperAdmin(); }
+    public function authorize(): bool {
+        return (bool) $this->user()?->hasRole('super_admin');
+    }
+
     public function rules(): array {
         return [
             'name'           => ['required','string','max:255'],

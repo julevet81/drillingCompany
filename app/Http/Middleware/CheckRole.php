@@ -16,7 +16,7 @@ class CheckRole
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
 
-        if (!in_array($user->role?->name, $roles)) {
+        if (!$user->hasAnyRole($roles)) {
             return response()->json(['success' => false, 'message' => 'Insufficient permissions'], 403);
         }
 

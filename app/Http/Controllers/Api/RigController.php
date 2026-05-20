@@ -19,8 +19,8 @@ class RigController extends BaseApiController
         $query = Rig::with(['location:id,name,state', 'manager:id,full_name'])
             ->withCount(['equipments', 'dailyReports']);
 
-        // if ($request->filled('status'))      $query->where('status', $request->status);
-        // if ($request->filled('location_id')) $query->where('location_id', $request->location_id);
+        if ($request->filled('status'))      $query->where('status', $request->status);
+        if ($request->filled('location_id')) $query->where('location_id', $request->location_id);
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -61,7 +61,7 @@ class RigController extends BaseApiController
     }
 
 
-    public function show(Request $request, Rig $rig): JsonResponse
+    public function show(Rig $rig): JsonResponse
     {
         $rig->load([
             'location:id,name,state',

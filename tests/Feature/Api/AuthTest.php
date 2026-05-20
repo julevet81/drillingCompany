@@ -20,37 +20,35 @@ class AuthTest extends TestCase
 
     public function test_user_can_login_with_valid_credentials(): void
     {
-        $role = Role::where('name', 'super_admin')->first();
-        User::factory()->create([
+        $user = User::factory()->create([
             'email'     => 'test@oms.dz',
             'password'  => bcrypt('password123'),
-            'role_id'   => $role->id,
             'is_active' => true,
         ]);
+        $user->assignRole('super_admin');
 
         $this->postJson('/api/auth/login', ['email' => 'test@oms.dz', 'password' => 'password123'])
             ->assertStatus(200)
-            ->assertJsonStructure(['success', 'data' => ['token', 'user' => ['id', 'role']]]);
+            ->assertJsonStructure(['success', 'data' => ['token', 'user' => ['id']]]);
     }
 
     public function test_login_fails_with_wrong_password(): void
     {
-        $role = Role::where('name', 'super_admin')->first();
-        User::factory()->create(['email' => 'test@oms.dz', 'role_id' => $role->id]);
+        $user = User::factory()->create(['email' => 'test@oms.dz']);
+        $user->assignRole('super_admin');
 
-        $this->postJson('/api/auth/login', ['email' => 'test@oms.dz', 'password' => 'wrong'])
+        $this->postJson('/api/auth/login', ['email' => 'test@oms.dz', 'password' => 'wrong123'])
             ->assertStatus(401);
     }
 
     public function test_inactive_user_cannot_login(): void
     {
-        $role = Role::where('name', 'super_admin')->first();
-        User::factory()->create([
+        $user = User::factory()->create([
             'email'     => 'inactive@oms.dz',
             'password'  => bcrypt('password'),
-            'role_id'   => $role->id,
             'is_active' => false,
         ]);
+        $user->assignRole('super_admin');
 
         $this->postJson('/api/auth/login', ['email' => 'inactive@oms.dz', 'password' => 'password'])
             ->assertStatus(403);
@@ -58,8 +56,8 @@ class AuthTest extends TestCase
 
     public function test_authenticated_user_can_get_profile(): void
     {
-        $role = Role::where('name', 'super_admin')->first();
-        $user = User::factory()->create(['role_id' => $role->id]);
+        $user = User::factory()->create();
+        $user->assignRole('super_admin');
 
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/auth/me')
@@ -69,8 +67,8 @@ class AuthTest extends TestCase
 
     public function test_user_can_logout(): void
     {
-        $role = Role::where('name', 'super_admin')->first();
-        $user = User::factory()->create(['role_id' => $role->id]);
+        $user = User::factory()->create();
+        $user->assignRole('super_admin');
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/auth/logout')

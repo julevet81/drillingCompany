@@ -64,20 +64,15 @@ class User extends Authenticatable
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    // public function hasRole(string $role): bool
-    // {
-    //     return $this->role?->name === $role;
-    // }
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
 
-    // public function isSuperAdmin(): bool
-    // {
-    //     return $this->hasRole('Super_Admin');
-    // }
-
-    // public function isManager(): bool
-    // {
-    //     return $this->hasRole('Rig_manager');
-    // }
+    public function isManager(): bool
+    {
+        return $this->hasRole('well_manager');
+    }
 
     public function isActive(): bool
     {

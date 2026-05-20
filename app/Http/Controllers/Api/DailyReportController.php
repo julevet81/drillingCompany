@@ -10,6 +10,7 @@ use App\Models\DailyReportEquipment;
 use App\Models\DailyReportEmployee;
 use App\Models\MaterialLog;
 use App\Models\RigMaterial;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,9 +21,9 @@ class DailyReportController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $query = DailyReport::with(['rig:id,name,code', 'author:id,full_name'])
-            ->withCount(['tools', 'reportEquipments', 'reportEmployees']);
+            ->withCount(['tools', 'reportEquipments', 'reportEmployees', 'materialLogs']);
 
-        if ($request->filled('rig_id'))  $query->where('rig_id', $request->rig_id);
+        //if ($request->filled('rig_id'))  $query->where('rig_id', $request->rig_id);
         if ($request->filled('date'))    $query->whereDate('report_date', $request->date);
         if ($request->filled('status'))  $query->where('status', $request->status);
 
@@ -30,9 +31,9 @@ class DailyReportController extends BaseApiController
             $query->whereBetween('report_date', [$request->from, $request->to]);
         }
 
-        if ($request->user()->isManager()) {
-            $query->whereHas('rig', fn ($q) => $q->where('manager_id', $request->user()->id));
-        }
+        // if ($request->user()->isManager()) {
+        //     $query->whereHas('rig', fn ($q) => $q->where('manager_id', $request->user()->id));
+        // }
 
         $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
 
@@ -66,12 +67,13 @@ class DailyReportController extends BaseApiController
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
     {
-        $report = DB::transaction(function () use ($request) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
-            $data['created_by']     = $request->user()->id;
-            $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+        try {
+            $report = DB::transaction(function () use ($request) {
+                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+                $data['created_by']     = $request->user()->id;
+                $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
 
-            $report = DailyReport::create($data);
+                $report = DailyReport::create($data);
 
             // BHA Tools
             if ($request->filled('tools')) {
@@ -138,8 +140,14 @@ class DailyReportController extends BaseApiController
             // Update rig current depth
             $report->rig->update(['current_depth' => $data['depth_end']]);
 
-            return $report;
-        });
+                return $report;
+            });
+        } catch (QueryException $e) {
+            if (str_contains($e->getMessage(), 'daily_reports.rig_id, daily_reports.report_date')) {
+                return $this->error('A report for this rig and date already exists.', 422);
+            }
+            throw $e;
+        }
 
         return $this->created(
             $report->load(['tools.drillingTool.toolType', 'reportEquipments.equipment', 'rig:id,name,code']),
@@ -168,8 +176,8 @@ class DailyReportController extends BaseApiController
     /** PUT /api/daily-reports/{report} */
     public function update(UpdateDailyReportRequest $request, DailyReport $report): JsonResponse
     {
-        if ($report->status === 'approved') {
-            return $this->error('Cannot edit an approved report', 422);
+        if ($report->status !== 'draft') {
+            return $this->error('Only draft reports can be edited', 422);
         }
 
         DB::transaction(function () use ($request, $report) {
@@ -220,7 +228,7 @@ class DailyReportController extends BaseApiController
     /** PATCH /api/daily-reports/{report}/approve */
     public function approve(DailyReport $report, Request $request): JsonResponse
     {
-        if (!$request->user()->isSuperAdmin()) {
+        if (!$request->user()->hasRole('super_admin')) {
             return $this->forbidden('Only admins can approve reports');
         }
         if ($report->status !== 'submitted') {

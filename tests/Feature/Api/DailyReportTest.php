@@ -22,9 +22,8 @@ class DailyReportTest extends TestCase
         Role::create(['name' => 'super_admin']);
         Role::create(['name' => 'well_manager']);
 
-        $this->admin = User::factory()->create([
-            'role_id' => Role::where('name', 'super_admin')->value('id'),
-        ]);
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('super_admin');
         $this->rig = Rig::factory()->create(['current_depth' => 2000]);
     }
 
@@ -138,11 +137,14 @@ class DailyReportTest extends TestCase
 
     public function test_can_get_daily_reports_summary(): void
     {
-        DailyReport::factory()->count(3)->create([
-            'rig_id'      => $this->rig->id,
-            'report_date' => today()->toDateString(),
-            'created_by'  => $this->admin->id,
-        ]);
+        $rigs = Rig::factory()->count(3)->create();
+        foreach ($rigs as $rig) {
+            DailyReport::factory()->create([
+                'rig_id'      => $rig->id,
+                'report_date' => today()->toDateString(),
+                'created_by'  => $this->admin->id,
+            ]);
+        }
 
         $this->actingAs($this->admin, 'sanctum')
             ->getJson('/api/daily-reports/summary?date=' . today()->toDateString())

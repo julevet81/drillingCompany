@@ -22,8 +22,11 @@ class RigTest extends TestCase
         Role::create(['name' => 'super_admin']);
         Role::create(['name' => 'well_manager']);
 
-        $this->admin   = User::factory()->create(['role_id' => Role::where('name', 'super_admin')->value('id')]);
-        $this->manager = User::factory()->create(['role_id' => Role::where('name', 'well_manager')->value('id')]);
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('super_admin');
+
+        $this->manager = User::factory()->create();
+        $this->manager->assignRole('well_manager');
     }
 
     public function test_can_list_rigs(): void
