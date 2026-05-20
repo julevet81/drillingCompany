@@ -18,6 +18,8 @@ class Equipment extends Model
         'serial_number',
     ];
 
+    protected $table = 'equipments';
+
     public function rig(): BelongsTo
     {
         return $this->belongsTo(Rig::class, 'current_rig_id');

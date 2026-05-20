@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('tool_types', function (Blueprint $table) {
             $table->id();
             $table->string('name'); // Outil, Raccord, Masse Tige 1-4, Tige, Kelly
+            $table->timestamps();
         });
 
         Schema::create('drilling_tools', function (Blueprint $table) {

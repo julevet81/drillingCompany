@@ -41,10 +41,21 @@ return new class extends Migration
             $table->index(['rig_material_id', 'log_date']);
             $table->index('report_id');
         });
+
+        Schema::create('daily_report_equipment', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('report_id')->constrained('daily_reports')->cascadeOnDelete();
+            $table->foreignId('equipment_id')->constrained('equipments')->restrictOnDelete();
+            $table->enum('status', ['Operational', 'Under_Maintenance', 'Out_of_Service'])->nullable();
+            $table->timestamps();
+
+            $table->unique(['report_id', 'equipment_id']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('daily_report_equipment');
         Schema::dropIfExists('material_logs');
         Schema::dropIfExists('rig_materials');
         Schema::dropIfExists('material_types');

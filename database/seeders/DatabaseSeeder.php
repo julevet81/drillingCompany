@@ -9,10 +9,6 @@ use Illuminate\Database\Seeder;
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         // User::factory(10)->create();
@@ -21,6 +17,18 @@ class DatabaseSeeder extends Seeder
             'full_name' => 'Admin super',
             'email' => 'admin@gmail.com',
             'password' => bcrypt('12345678'),
+        ]);
+
+        $this->call([
+            MasterDataSeeder::class,
+            RoleAndUserSeeder::class,
+            LocationAndRigSeeder::class,
+            EmployeeAndShiftSeeder::class,
+            EquipmentSeeder::class,
+            DrillingToolSeeder::class,
+            MaterialStockSeeder::class,
+            DailyReportSeeder::class,
+
         ]);
     }
 }

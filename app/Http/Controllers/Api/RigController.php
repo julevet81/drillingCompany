@@ -60,13 +60,10 @@ class RigController extends BaseApiController
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
-        return $this->created($rig->load('location', 'manager:id,full_name'), 'Rig created successfully');
+        return $this->created($rig->load('location:id,name,state', 'manager:id,full_name'), 'Rig created successfully');
     }
 
-    /**
-     * GET /api/rigs/{rig}
-     * Full rig detail — used by the Rig Detail page (images 12 & 13)
-     */
+
     public function show(Request $request, Rig $rig): JsonResponse
     {
         $rig->load([
@@ -144,7 +141,7 @@ class RigController extends BaseApiController
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
-        return $this->success($rig->fresh('location', 'manager:id,full_name'), 'Rig updated');
+        return $this->success($rig->fresh('location:id,name,state', 'manager:id,full_name'), 'Rig updated');
     }
 
     /** DELETE /api/rigs/{rig} */

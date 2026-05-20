@@ -37,10 +37,13 @@ return new class extends Migration
             $table->index('report_date');
             $table->index('created_by');
         });
+
+        
     }
 
     public function down(): void
     {
+        
         Schema::dropIfExists('daily_reports');
     }
 };

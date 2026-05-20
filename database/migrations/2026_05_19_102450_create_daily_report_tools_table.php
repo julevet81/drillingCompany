@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('daily_report_tools', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('report_id')->constrained('daily_reports')->cascadeOnDelete();
+            $table->foreignId('drilling_tool_id')->constrained('drilling_tools')->restrictOnDelete();
+            $table->integer('quantity_used')->default(0);
+            $table->decimal('total_length', 10, 2)->default(0);
             $table->timestamps();
         });
     }

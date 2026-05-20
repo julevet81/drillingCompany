@@ -20,6 +20,7 @@ return new class extends Migration
 
             $table->index('current_rig_id');
         });
+
     }
 
     public function down(): void
