@@ -17,9 +17,6 @@ class RoleAndUserSeeder extends Seeder
             Role::firstOrCreate(['name' => $name]);
         }
 
-        $admin   = Role::where('name', 'Super_Admin')->first();
-        $manager = Role::where('name', 'Rig_manager')->first();
-
         // ── Users (matching UI screenshots) ──────────────────────────
         $users = [
             [

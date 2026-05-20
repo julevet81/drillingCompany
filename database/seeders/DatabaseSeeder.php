@@ -30,5 +30,8 @@ class DatabaseSeeder extends Seeder
             DailyReportSeeder::class,
 
         ]);
+
+        $admin = User::where('email', 'admin@gmail.com')->first();
+        $admin->assignRole('Super_Admin');
     }
 }
