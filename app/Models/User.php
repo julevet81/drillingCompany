@@ -71,12 +71,12 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return $this->hasRole(Role::where('name', 'Admin')->first()->name);
+        return $this->hasRole(Role::where('name', 'Super_Admin')->first()->name);
     }
 
     public function isManager(): bool
     {
-        return $this->hasRole(Role::where('name', 'Manager')->first()->name);
+        return $this->hasRole(Role::where('name', 'Rig_manager')->first()->name);
     }
 
     public function isActive(): bool
