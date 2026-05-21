@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DailyReportController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DrillingToolController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\EquipmentController;
@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MaterialController;
 use App\Http\Controllers\Api\RigController;
 use App\Http\Controllers\Api\ShiftController;
+use App\Http\Controllers\Api\TvDisplayController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,14 +47,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Executive Dashboard ───────────────────────────────────────────
     Route::prefix('dashboard')->group(function () {
-        Route::get('stats',         [DashboardController::class, 'stats']);
-        Route::get('depth-chart',   [DashboardController::class, 'depthChart']);
-        Route::get('weekly-progress', [DashboardController::class, 'weeklyProgress']);
-        Route::get('rig-status',    [DashboardController::class, 'rigStatusDistribution']);
-        Route::get('active-rigs',   [DashboardController::class, 'activeRigsOverview']);
-        Route::get('alerts',        [DashboardController::class, 'alerts']);
-        Route::get('system-status', [DashboardController::class, 'systemStatus']);
+        Route::get('stats',             [DashboardController::class, 'stats']);
+        Route::get('depth-chart',       [DashboardController::class, 'depthChart']);
+        Route::get('weekly-progress',   [DashboardController::class, 'weeklyProgress']);
+        Route::get('rig-status',        [DashboardController::class, 'rigStatusDistribution']);
+        Route::get('active-rigs',       [DashboardController::class, 'activeRigsOverview']);
+        Route::get('alerts',            [DashboardController::class, 'alerts']);
+        Route::get('system-status',     [DashboardController::class, 'systemStatus']);
     });
+
+    // ── TV Display ────────────────────────────────────────────────────
+    Route::get('tv-display',           [TvDisplayController::class, 'index']);
+    Route::get('tv-display/rigs',      [TvDisplayController::class, 'rigs']);
+    Route::get('tv-display/crew',      [TvDisplayController::class, 'crew']);
+    Route::get('tv-display/equipment', [TvDisplayController::class, 'equipment']);
 
     // ── Rigs (Drilling Machines) ──────────────────────────────────────
     // Extra actions must be declared BEFORE apiResource to avoid route conflicts

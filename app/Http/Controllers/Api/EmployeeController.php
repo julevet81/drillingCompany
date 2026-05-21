@@ -19,13 +19,13 @@ class EmployeeController extends BaseApiController
         $query = Employee::with(['position:id,name']);
 
         if ($request->filled('position_id')) $query->where('position_id', $request->position_id);
-        if ($request->filled('search'))      $query->where('full_name', 'like', '%' . $request->search . '%');
+        //if ($request->filled('search'))      $query->where('full_name', 'like', '%' . $request->search . '%');
 
-        if ($request->filled('status')) {
-            $query->whereHas('shifts', fn ($q) => $q
-                ->whereDate('date', today())
-                ->where('employee_shifts.status', $request->status));
-        }
+        // if ($request->filled('status')) {
+        //     $query->whereHas('shifts', fn ($q) => $q
+        //         ->whereDate('date', today())
+        //         ->where('employee_shifts.status', $request->status));
+        // }
 
         if ($request->filled('rig_id')) {
             $query->whereHas('shifts', fn ($q) => $q
