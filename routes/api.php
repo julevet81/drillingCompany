@@ -132,7 +132,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::prefix('users')->group(function () {
             Route::get('stats',                   [UserController::class, 'stats']);
             Route::patch('{user}/toggle-active',  [UserController::class, 'toggleActive']);
-            Route::patch('{user}/assign-role',    [UserController::class, 'assignRole']);
+            Route::post('{user}/assign-role',    [UserController::class, 'assignRole']);
         });
         Route::apiResource('users', UserController::class);
     });

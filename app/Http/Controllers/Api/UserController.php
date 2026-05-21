@@ -15,22 +15,24 @@ class UserController extends BaseApiController
     /** GET /api/users */
     public function index(Request $request): JsonResponse
     {
-        $query = User::with('roles')->withCount('managedRigs');
+        $query = User::query()
+            ->with('roles')
+            ->withCount('managedRigs');
 
-        if ($request->filled('role')) {
+        if ($request->has('role') && $request->role != '') {
             $query->whereHas('roles', function ($q) use ($request) {
                 $q->where('name', $request->role);
             });
         }
 
-        if ($request->filled('is_active')) {
-            $query->where(
-                'is_active',
-                filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN)
-            );
-        }
+        // if ($request->has('is_active')) {
+        //     $query->where(
+        //         'is_active',
+        //         filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN)
+        //     );
+        // }
 
-        if ($request->filled('search')) {
+        if ($request->has('search') && $request->search != '') {
             $s = $request->search;
 
             $query->where(function ($q) use ($s) {
@@ -49,9 +51,12 @@ class UserController extends BaseApiController
     {
         return $this->success([
             'total'    => User::count(),
+
             'active'   => User::where('is_active', true)->count(),
-            'admins'   => User::whereHas('role', fn ($q) => $q->where('name', 'Super_Admin'))->count(),
-            'managers' => User::whereHas('role', fn ($q) => $q->where('name', 'Rig_Manager'))->count(),
+
+            'admins'   => User::role('Super_Admin')->count(),
+
+            'managers' => User::role('Rig_Manager')->count(),
         ]);
     }
 
@@ -59,13 +64,13 @@ class UserController extends BaseApiController
     public function store(StoreUserRequest $request): JsonResponse
     {
         $user = User::create([...$request->validated(), 'password' => Hash::make($request->password)]);
-        return $this->created($user->load('role'), 'User created');
+        return $this->created($user->load('roles'), 'User created');
     }
 
     /** GET /api/users/{user} */
     public function show(User $user): JsonResponse
     {
-        $user->load(['role', 'managedRigs:id,name,code,status']);
+        $user->load(['roles', 'managedRigs:id,name,code,status']);
         return $this->success($user);
     }
 
@@ -109,9 +114,9 @@ class UserController extends BaseApiController
             'role_id' => ['required', 'exists:roles,id']
         ]);
 
-        $role = Role::findById($request->role_id);
+        $role = Role::find($request->role_id);
 
-        $user->syncRoles([$role->name]);
+        $user->syncRoles([$role]);
 
         return $this->success([
             'user' => $user->fresh('roles')

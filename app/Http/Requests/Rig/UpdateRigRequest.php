@@ -12,7 +12,7 @@ class UpdateRigRequest extends FormRequest
     {
         $rig  = $this->route('rig');
         $user = $this->user();
-        return $user->isSuperAdmin() || $rig->manager_id === $user->id;
+        return $user->hasRole('Super_Admin') || $rig->manager_id === $user->id;
     }
 
     public function rules(): array

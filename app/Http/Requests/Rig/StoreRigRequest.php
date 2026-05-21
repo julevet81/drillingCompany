@@ -5,7 +5,7 @@ use Illuminate\Validation\Rule;
 
 class StoreRigRequest extends FormRequest {
     public function authorize(): bool {
-        return (bool) $this->user()?->hasRole('super_admin');
+        return (bool) $this->user()?->hasRole('Super_Admin');
     }
 
     public function rules(): array {
