@@ -15,14 +15,33 @@ class UserController extends BaseApiController
     /** GET /api/users */
     public function index(Request $request): JsonResponse
     {
-        $query = User::with('role')->withCount('managedRigs');
-        if ($request->filled('role'))      $query->whereHas('role', fn ($q) => $q->where('name', $request->role));
-        if ($request->filled('is_active')) $query->where('is_active', filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN));
+        $query = User::with('roles')->withCount('managedRigs');
+
+        if ($request->filled('role')) {
+            $query->whereHas('roles', function ($q) use ($request) {
+                $q->where('name', $request->role);
+            });
+        }
+
+        if ($request->filled('is_active')) {
+            $query->where(
+                'is_active',
+                filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN)
+            );
+        }
+
         if ($request->filled('search')) {
             $s = $request->search;
-            $query->where(fn ($q) => $q->where('full_name', 'like', "%$s%")->orWhere('email', 'like', "%$s%"));
+
+            $query->where(function ($q) use ($s) {
+                $q->where('full_name', 'like', "%{$s}%")
+                    ->orWhere('email', 'like', "%{$s}%");
+            });
         }
-        return $this->paginated($query->latest()->paginate($request->per_page ?? 15));
+
+        return $this->paginated(
+            $query->latest()->paginate($request->per_page ?? 15)
+        );
     }
 
     /** GET /api/users/stats */
@@ -86,8 +105,16 @@ class UserController extends BaseApiController
 
     public function assignRole(Request $request, User $user): JsonResponse
     {
-        $request->validate(['role_id' => ['required', 'exists:roles,id']]);
-        $user->assignRole(Role::findById($request->role_id)->name);
-        return $this->success($user->fresh('role'), 'Role assigned');
+        $request->validate([
+            'role_id' => ['required', 'exists:roles,id']
+        ]);
+
+        $role = Role::findById($request->role_id);
+
+        $user->syncRoles([$role->name]);
+
+        return $this->success([
+            'user' => $user->fresh('roles')
+        ], 'Role assigned successfully');
     }
 }

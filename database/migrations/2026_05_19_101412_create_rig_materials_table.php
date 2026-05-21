@@ -51,10 +51,21 @@ return new class extends Migration
 
             $table->unique(['report_id', 'equipment_id']);
         });
+
+        Schema::create('daily_report_employees', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('report_id')->constrained('daily_reports')->cascadeOnDelete();
+            $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
+            $table->boolean('present')->default(true);
+            $table->timestamps();
+
+            $table->unique(['report_id', 'shift_id']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('daily_report_employees');
         Schema::dropIfExists('daily_report_equipment');
         Schema::dropIfExists('material_logs');
         Schema::dropIfExists('rig_materials');

@@ -71,13 +71,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ── Locations ─────────────────────────────────────────────────────
     Route::apiResource('locations', LocationController::class)->except(['show']);
 
-    // ── Daily Field Reports ───────────────────────────────────────────
-    Route::prefix('daily-reports')->group(function () {
-        Route::get('summary',              [DailyReportController::class, 'summary']);
-        Route::patch('{report}/submit',    [DailyReportController::class, 'submit']);
-        Route::patch('{report}/approve',   [DailyReportController::class, 'approve'])
-            ->middleware('role:super_admin');
-    });
+    // ── Daily Reports ─────────────────────────────────────────────────
+    // Static routes first — then apiResource
+    Route::get('daily-reports/summary',            [DailyReportController::class, 'summary']);
+    Route::patch('daily-reports/{report}/submit',   [DailyReportController::class, 'submit']);
+    Route::patch('daily-reports/{report}/approve',  [DailyReportController::class, 'approve'])
+        ->middleware('role:super_admin');
     Route::apiResource('daily-reports', DailyReportController::class);
 
     // ── BHA / Drilling Tools ──────────────────────────────────────────
@@ -127,7 +126,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Users Management ─────────────────────────────────────────────
     // All user management is admin-only
-    Route::middleware('role:super_admin')->group(function () {
+    Route::middleware('role:Super_Admin')->group(function () {
         Route::get('roles',                       [UserController::class, 'roles']);
 
         Route::prefix('users')->group(function () {

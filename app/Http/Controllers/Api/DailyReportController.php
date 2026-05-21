@@ -43,27 +43,52 @@ class DailyReportController extends BaseApiController
     /** GET /api/daily-reports/summary */
     public function summary(Request $request): JsonResponse
     {
-        $date = $request->date ?? today()->toDateString();
+        try {
+            // Validate date format
+            $date = $request->filled('date')
+                ? \Carbon\Carbon::parse($request->date)->toDateString()
+                : today()->toDateString();
 
-        $data = DailyReport::whereDate('report_date', $date)
-            ->selectRaw('COUNT(*) as total_reports, AVG(daily_progress) as avg_progress, SUM(workers_count) as total_personnel, SUM(fuel_consumption) as total_fuel')
-            ->first();
+            // Single query for all report aggregates
+            $data = DailyReport::whereDate('report_date', $date)
+                ->selectRaw('
+                COUNT(*)                as total_reports,
+                COALESCE(AVG(daily_progress), 0)  as avg_progress,
+                COALESCE(SUM(workers_count), 0)   as total_personnel,
+                COALESCE(SUM(fuel_consumption), 0) as total_fuel
+            ')
+                ->first();
 
-        $avgBha = DailyReportTool::whereHas('report', fn ($q) => $q->whereDate('report_date', $date))
-            ->avg('total_length');
+            // BHA average length for that date
+            $avgBha = DailyReportTool::whereHas(
+                'report',
+                fn($q) => $q->whereDate('report_date', $date)
+            )->avg('total_length') ?? 0;
 
-        $totalMaterials = DailyReportTool::whereHas('report', fn ($q) => $q->whereDate('report_date', $date))
-            ->sum('quantity_used');
+            // Total materials used for that date
+            $totalMaterials = DailyReportTool::whereHas(
+                'report',
+                fn($q) => $q->whereDate('report_date', $date)
+            )->sum('quantity_used') ?? 0;
 
-        return $this->success([
-            'total_reports'    => (int) $data->total_reports,
-            'avg_progress_m'   => round($data->avg_progress ?? 0, 2),
-            'total_personnel'  => (int) $data->total_personnel,
-            'avg_bha_length_m' => round($avgBha ?? 0, 2),
-            'total_materials'  => (int) $totalMaterials,
-        ]);
+            return $this->success([
+                'date'             => $date,
+                'total_reports'    => (int) ($data->total_reports   ?? 0),
+                'avg_progress_m'   => round($data->avg_progress     ?? 0, 2),
+                'total_personnel'  => (int) ($data->total_personnel ?? 0),
+                'total_fuel_l'     => round($data->total_fuel       ?? 0, 2),
+                'avg_bha_length_m' => round($avgBha,         2),
+                'total_materials'  => (int) $totalMaterials,
+            ]);
+        } catch (\Carbon\Exceptions\InvalidFormatException $e) {
+            return $this->error('Invalid date format. Use YYYY-MM-DD', 422);
+        } catch (\Exception $e) {
+            return $this->error(
+                config('app.debug') ? $e->getMessage() : 'Failed to load summary',
+                500
+            );
+        }
     }
-
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
     {
