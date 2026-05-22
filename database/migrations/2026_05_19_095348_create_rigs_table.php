@@ -17,14 +17,13 @@ return new class extends Migration
 
             // Status: active=Drilling/Devloping, paused=Stopped, completed, fishing, dtm, casing
             $table->enum('status', [
-                'active',
-                'paused',
-                'completed',
+                'drilling',
+                'developing',
                 'fishing',
                 'dtm',
                 'casing',
-                'maintenance',
-            ])->default('active');
+                'stopped',
+            ])->default('drilling');
 
             $table->decimal('current_depth', 10, 2)->default(0);
             $table->decimal('target_depth', 10, 2)->nullable();
@@ -34,6 +33,7 @@ return new class extends Migration
 
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
+            $table->text('notes')->nullable();
 
             $table->timestamps();
             $table->softDeletes();

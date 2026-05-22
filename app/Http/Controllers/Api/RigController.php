@@ -37,13 +37,14 @@ class RigController extends BaseApiController
     public function stats(): JsonResponse
     {
         $stats = Cache::remember('rigs:stats', 120, fn () => [
-            'total'    => Rig::count(),
-            'drilling' => Rig::where('status', 'active')->count(),
-            'stopped'  => Rig::where('status', 'paused')->count(),
-            'fishing'  => Rig::where('status', 'fishing')->count(),
-            'casing'   => Rig::where('status', 'casing')->count(),
-            'dtm'      => Rig::where('status', 'dtm')->count(),
-            'by_status' => Rig::selectRaw('status, COUNT(*) as count')
+            'total'      => Rig::count(),
+            'drilling'   => Rig::where('status', 'drilling')->count(),
+            'stopped'    => Rig::where('status', 'stopped')->count(),
+            'fishing'    => Rig::where('status', 'fishing')->count(),
+            'casing'     => Rig::where('status', 'casing')->count(),
+            'dtm'        => Rig::where('status', 'dtm')->count(),
+            'developing' => Rig::where('status', 'developing')->count(),
+            'by_status'  => Rig::selectRaw('status, COUNT(*) as count')
                 ->groupBy('status')->pluck('count', 'status'),
         ]);
 
@@ -66,7 +67,7 @@ class RigController extends BaseApiController
         $rig->load([
             'location:id,name,state',
             'manager:id,full_name,email',
-            'equipments:id,current_rig_id,name,marque,serial_number',
+            'equipments:id,current_rig_id,name,marque,serial_number,hours_of_operation,status',
             'drillingTools.toolType:id,name',
             'rigMaterials.materialType:id,name,unit',
             'shifts' => fn ($q) => $q
@@ -107,13 +108,13 @@ class RigController extends BaseApiController
             'rig' => array_merge($rig->only([
                 'id', 'name', 'code', 'status', 'drilling_phase',
                 'current_depth', 'target_depth',
-                'start_date', 'end_date',
-            ]), [
+                'start_date', 'end_date', 'notes'
+                ]), [
                 'location'           => $rig->location?->name,
                 'manager'            => $rig->manager?->full_name,
                 'progress_percentage' => $rig->progress_percentage,
                 'days_remaining'     => $rig->days_remaining,
-            ]),
+             ]),
             'equipments'     => $rig->equipments,
             'drilling_tools' => $rig->drillingTools,
             'materials'      => $rig->rigMaterials->map(fn ($m) => [

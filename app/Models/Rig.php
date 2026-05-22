@@ -25,6 +25,7 @@ class Rig extends Model
         'drilling_phase',
         'start_date',
         'end_date',
+        'notes'
     ];
 
     protected $casts = [
@@ -35,13 +36,12 @@ class Rig extends Model
     ];
 
     public const STATUSES = [
-        'active',
-        'paused',
-        'completed',
+        'drilling',
+        'developing',
         'fishing',
         'dtm',
         'casing',
-        'maintenance',
+        'stopped',
     ];
 
     // ─── Relationships ────────────────────────────────────────────────────────
