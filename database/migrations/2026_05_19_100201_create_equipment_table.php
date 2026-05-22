@@ -15,6 +15,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('marque')->nullable();          // Brand: Caterpillar, Volvo…
             $table->string('serial_number')->unique()->nullable();
+            $table->decimal('hours_of_operation')->nullable();
+            $table->enum('status', ['operational', 'maintenance', 'out_of_service'])->default('operational');
             $table->timestamps();
             $table->softDeletes();
 

@@ -16,6 +16,8 @@ class Equipment extends Model
         'name',
         'marque',
         'serial_number',
+        'hours_of_operation',
+        'status',
     ];
 
     protected $table = 'equipments';

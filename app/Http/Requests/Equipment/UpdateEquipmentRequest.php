@@ -18,6 +18,7 @@ class UpdateEquipmentRequest extends FormRequest
             'name'           => ['sometimes', 'string', 'max:255'],
             'marque'         => ['nullable', 'string', 'max:100'],
             'serial_number'  => ['nullable', 'string', 'max:100', Rule::unique('equipments', 'serial_number')->ignore($id)],
+            'status'         => ['sometimes', Rule::in(['operational', 'maintenance', 'out_of_service'])],
         ];
     }
 }

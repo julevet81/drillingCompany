@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Equipment;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreEquipmentRequest extends FormRequest
 {
@@ -15,6 +16,8 @@ class StoreEquipmentRequest extends FormRequest
             'name'           => ['required', 'string', 'max:255'],
             'marque'         => ['nullable', 'string', 'max:100'],
             'serial_number'  => ['nullable', 'string', 'max:100', 'unique:equipments,serial_number'],
+            'hours_of_operation' => ['nullable', 'numeric'],
+            'status'         => ['sometimes', Rule::in(['operational', 'maintenance', 'out_of_service'])],
         ];
     }
 }
