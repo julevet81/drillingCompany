@@ -9,7 +9,6 @@ use App\Models\Rig;
 use App\Models\RigMaterial;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends BaseApiController
 {
@@ -159,7 +158,7 @@ class DashboardController extends BaseApiController
     public function systemStatus(): JsonResponse
     {
         $status = Cache::remember('dashboard:system-status', 60, fn () => [
-            'active_rigs'      => Rig::where('status', 'active')->count(),
+            'active_rigs'      => Rig::where('status', 'drilling')->count(),
             'running_machines' => Equipment::whereNotNull('current_rig_id')->count(),
             'field_workers'    => EmployeeShift::where('status', 'onsite')
                 ->whereHas('shift', fn ($q) => $q->whereDate('date', today()))

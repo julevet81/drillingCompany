@@ -253,7 +253,7 @@ class DailyReportController extends BaseApiController
     /** PATCH /api/daily-reports/{report}/approve */
     public function approve(DailyReport $report, Request $request): JsonResponse
     {
-        if (!$request->user()->hasRole('super_admin')) {
+        if (!$request->user()->hasRole('Super_Admin')) {
             return $this->forbidden('Only admins can approve reports');
         }
         if ($report->status !== 'submitted') {
