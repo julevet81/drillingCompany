@@ -104,7 +104,7 @@ class DashboardController extends BaseApiController
     public function activeRigsOverview(): JsonResponse
     {
         $rigs = Rig::with('location:id,name')
-            ->where('status', 'active')
+            ->where('status', 'drilling')
             ->select(['id', 'name', 'code', 'location_id', 'status', 'current_depth', 'target_depth', 'drilling_phase'])
             ->get()
             ->map(fn ($rig) => [
