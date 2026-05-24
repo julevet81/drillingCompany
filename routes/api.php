@@ -83,7 +83,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('daily-reports/summary',            [DailyReportController::class, 'summary']);
     Route::patch('daily-reports/{report}/submit',   [DailyReportController::class, 'submit']);
     Route::patch('daily-reports/{report}/approve',  [DailyReportController::class, 'approve'])
-        ->middleware('role:super_admin');
+        ->middleware('role:Super_Admin');
     Route::apiResource('daily-reports', DailyReportController::class);
 
     // ── BHA / Drilling Tools ──────────────────────────────────────────
@@ -96,7 +96,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('materials')->group(function () {
         Route::get('types',              [MaterialController::class, 'types']);
         Route::post('types',             [MaterialController::class, 'storeType'])
-            ->middleware('role:super_admin');
+            ->middleware('role:Super_Admin');
 
         Route::get('fuel-stats',         [MaterialController::class, 'fuelStats']);
         Route::get('fuel-levels',        [MaterialController::class, 'fuelLevels']);
@@ -112,6 +112,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Employees ─────────────────────────────────────────────────────
     Route::get('positions',                       [EmployeeController::class, 'positions']);
+    Route::post('add_postion',                    [EmployeeController::class, 'add_position']);
     Route::prefix('employees')->group(function () {
         Route::get('stats',                       [EmployeeController::class, 'stats']);
         Route::patch('{employee}/status',         [EmployeeController::class, 'updateStatus']);

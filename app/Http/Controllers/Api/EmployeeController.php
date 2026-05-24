@@ -6,6 +6,7 @@ use App\Http\Requests\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Employee\UpdateEmployeeRequest;
 use App\Models\Employee;
 use App\Models\EmployeeShift;
+use App\Models\Position;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -110,5 +111,14 @@ class EmployeeController extends BaseApiController
     public function positions(): JsonResponse
     {
         return $this->success(\App\Models\Position::all());
+    }
+
+    public function add_position(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255']
+        ]);
+
+        return $this->created(Position::create($data), 'Position created');
     }
 }
