@@ -12,9 +12,9 @@ class RoleAndUserSeeder extends Seeder
     public function run(): void
     {
         // ── Roles ────────────────────────────────────────────────────
-        $roles = ['Super_Admin', 'Rig_manager'];
+        $roles = ['Super_Admin', 'Rig_Manager'];
         foreach ($roles as $name) {
-            Role::firstOrCreate(['name' => $name]);
+            Role::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
         }
 
         // ── Users (matching UI screenshots) ──────────────────────────

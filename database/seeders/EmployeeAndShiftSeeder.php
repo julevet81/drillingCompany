@@ -7,7 +7,6 @@ use App\Models\Position;
 use App\Models\Rig;
 use App\Models\Shift;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class EmployeeAndShiftSeeder extends Seeder
 {
