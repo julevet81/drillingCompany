@@ -49,18 +49,20 @@ class AuthController extends BaseApiController
             return $this->error('Account is deactivated. Contact administrator.', 403);
         }
 
-        $user->tokens()->delete(); // single-session security
+        $user->tokens()->delete();
 
         $token = $user->createToken('api-token', ['*'], now()->addDays(30))->plainTextToken;
 
         return $this->success([
             'token' => $token,
             'user'  => [
-                'id'        => $user->id,
-                'full_name' => $user->full_name,
-                'email'     => $user->email,
-                'phone'     => $user->phone,
-                'is_active' => $user->is_active,
+                'id'          => $user->id,
+                'full_name'   => $user->full_name,
+                'email'       => $user->email,
+                'phone'       => $user->phone,
+                'is_active'   => $user->is_active,
+                'roles'       => $user->getRoleNames(),           // ['admin', 'editor']
+                'permissions' => $user->getAllPermissions()->pluck('name'), // ['edit posts', ...]
             ],
         ], 'Login successful');
     }
