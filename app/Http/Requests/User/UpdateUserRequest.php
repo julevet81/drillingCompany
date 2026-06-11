@@ -7,7 +7,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends FormRequest
 {
-    public function authorize(): bool { return $this->user()->isSuperAdmin(); }
+    public function authorize(): bool {
+        return $this->user()->hasRole('Super_Admin'); }
 
     public function rules(): array
     {
