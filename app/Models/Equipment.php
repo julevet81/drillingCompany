@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Equipment extends Model
 {
@@ -16,11 +16,21 @@ class Equipment extends Model
         'name',
         'marque',
         'serial_number',
+        'photo',
         'hours_of_operation',
         'status',
     ];
 
     protected $table = 'equipments';
+
+    protected $appends = ['photo_url'];
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo
+            ? url('storage/' . ltrim($this->photo, '/'))
+            : null;
+    }
 
     public function rig(): BelongsTo
     {
@@ -31,4 +41,6 @@ class Equipment extends Model
     {
         return $query->where('current_rig_id', $rigId);
     }
+
+
 }

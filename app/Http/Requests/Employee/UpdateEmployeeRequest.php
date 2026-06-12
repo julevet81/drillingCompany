@@ -12,7 +12,7 @@ class UpdateEmployeeRequest extends FormRequest
     {
         return [
             'full_name'   => ['sometimes', 'string', 'max:255'],
-            'photo'       => ['nullable', 'image', 'max:2048'],
+            'photo'       => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'position_id' => ['nullable', 'exists:positions,id'],
         ];
     }

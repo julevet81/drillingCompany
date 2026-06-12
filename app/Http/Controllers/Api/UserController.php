@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends BaseApiController
 {
@@ -25,16 +26,8 @@ class UserController extends BaseApiController
             });
         }
 
-        // if ($request->has('is_active')) {
-        //     $query->where(
-        //         'is_active',
-        //         filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN)
-        //     );
-        // }
-
         if ($request->has('search') && $request->search != '') {
             $s = $request->search;
-
             $query->where(function ($q) use ($s) {
                 $q->where('full_name', 'like', "%{$s}%")
                     ->orWhere('email', 'like', "%{$s}%");
@@ -51,11 +44,8 @@ class UserController extends BaseApiController
     {
         return $this->success([
             'total'    => User::count(),
-
             'active'   => User::where('is_active', true)->count(),
-
             'admins'   => User::role('Super_Admin')->count(),
-
             'managers' => User::role('Rig_Manager')->count(),
         ]);
     }
@@ -63,7 +53,14 @@ class UserController extends BaseApiController
     /** POST /api/users */
     public function store(StoreUserRequest $request): JsonResponse
     {
-        $user = User::create([...$request->validated(), 'password' => Hash::make($request->password)]);
+        $data = $request->validated();
+        $data['password'] = Hash::make($request->password);
+
+        if ($request->hasFile('photo')) {
+            $data['photo'] = $request->file('photo')->store('users/photos', 'public');
+        }
+
+        $user = User::create($data);
         return $this->created($user->load('roles'), 'User created');
     }
 
@@ -78,15 +75,36 @@ class UserController extends BaseApiController
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
-        if (isset($data['password'])) $data['password'] = Hash::make($data['password']);
+
+        if (isset($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        }
+
+        if ($request->hasFile('photo')) {
+            // حذف الصورة القديمة إن وجدت
+            if ($user->photo) {
+                Storage::disk('public')->delete($user->photo);
+            }
+            $data['photo'] = $request->file('photo')->store('users/photos', 'public');
+        }
+
         $user->update($data);
-        return $this->success($user->fresh('role'), 'User updated');
+        $user->load('roles');
+        return $this->success($user, 'User updated');
     }
 
     /** DELETE /api/users/{user} */
     public function destroy(Request $request, User $user): JsonResponse
     {
-        if ($user->id === $request->user()->id) return $this->error('Cannot delete your own account', 422);
+        if ($user->id === $request->user()->id) {
+            return $this->error('Cannot delete your own account', 422);
+        }
+
+        // حذف الصورة عند حذف المستخدم
+        if ($user->photo) {
+            Storage::disk('public')->delete($user->photo);
+        }
+
         $user->tokens()->delete();
         $user->delete();
         return $this->success(null, 'User deleted');
@@ -95,11 +113,33 @@ class UserController extends BaseApiController
     /** PATCH /api/users/{user}/toggle-active */
     public function toggleActive(User $user, Request $request): JsonResponse
     {
-        if ($user->id === $request->user()->id) return $this->error('Cannot deactivate your own account', 422);
+        if ($user->id === $request->user()->id) {
+            return $this->error('Cannot deactivate your own account', 422);
+        }
+
         $user->update(['is_active' => !$user->is_active]);
-        if (!$user->is_active) $user->tokens()->delete();
-        return $this->success(['id' => $user->id, 'is_active' => $user->is_active],
-            $user->is_active ? 'User activated' : 'User deactivated');
+
+        if (!$user->is_active) {
+            $user->tokens()->delete();
+        }
+
+        return $this->success(
+            ['id' => $user->id, 'is_active' => $user->is_active],
+            $user->is_active ? 'User activated' : 'User deactivated'
+        );
+    }
+
+    /** DELETE /api/users/{user}/photo */
+    public function deletePhoto(User $user): JsonResponse
+    {
+        if (!$user->photo) {
+            return $this->error('No photo to delete', 404);
+        }
+
+        Storage::disk('public')->delete($user->photo);
+        $user->update(['photo' => null]);
+
+        return $this->success(null, 'Photo deleted');
     }
 
     /** GET /api/roles */
@@ -115,7 +155,6 @@ class UserController extends BaseApiController
         ]);
 
         $role = Role::find($request->role_id);
-
         $user->syncRoles([$role]);
 
         return $this->success([

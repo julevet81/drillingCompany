@@ -12,7 +12,7 @@ class StoreEmployeeRequest extends FormRequest
     {
         return [
             'full_name'   => ['required', 'string', 'max:255'],
-            'photo'       => ['nullable', 'image', 'max:2048'],
+            'photo'       => ['nullable', 'image', 'max:2048', 'mimes:jpg,jpeg,png,webp'],
             'position_id' => ['nullable', 'exists:positions,id'],
         ];
     }

@@ -16,6 +16,7 @@ class StoreEquipmentRequest extends FormRequest
             'name'           => ['required', 'string', 'max:255'],
             'marque'         => ['nullable', 'string', 'max:100'],
             'serial_number'  => ['nullable', 'string', 'max:100', 'unique:equipments,serial_number'],
+            'photo'          => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'hours_of_operation' => ['nullable', 'numeric'],
             'status'         => ['sometimes', Rule::in(['operational', 'maintenance', 'out_of_service'])],
         ];

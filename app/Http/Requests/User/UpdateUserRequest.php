@@ -19,6 +19,7 @@ class UpdateUserRequest extends FormRequest
             'email'     => ['sometimes', 'email', Rule::unique('users')->ignore($userId)],
             'phone'     => ['nullable', 'string', 'max:20'],
             'password'  => ['nullable', 'string', 'min:8'],
+            'photo'     => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

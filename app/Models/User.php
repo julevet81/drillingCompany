@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -20,9 +21,11 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'photo',
         'is_active',
     ];
 
+    protected $appends = ['photo_url'];
     protected $hidden = [
         'password',
         'remember_token',
@@ -61,5 +64,12 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->is_active === true;
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        $photo = $this->getAttribute('photo');
+
+        return $photo ? Storage::url($photo) : null;
     }
 }

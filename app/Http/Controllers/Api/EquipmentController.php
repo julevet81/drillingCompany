@@ -7,6 +7,7 @@ use App\Http\Requests\Equipment\UpdateEquipmentRequest;
 use App\Models\Equipment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class EquipmentController extends BaseApiController
 {
@@ -18,20 +19,25 @@ class EquipmentController extends BaseApiController
         if ($request->filled('rig_id'))  $query->where('current_rig_id', $request->rig_id);
         if ($request->filled('search')) {
             $s = $request->search;
-            $query->where(fn ($q) => $q
+            $query->where(fn($q) => $q
                 ->where('name', 'like', "%$s%")
                 ->orWhere('serial_number', 'like', "%$s%")
                 ->orWhere('marque', 'like', "%$s%"));
         }
 
-        $equipments = $query->latest()->paginate($request->per_page ?? 15);
-        return $this->paginated($equipments);
+        return $this->paginated($query->latest()->paginate($request->per_page ?? 15));
     }
 
     /** POST /api/equipments */
     public function store(StoreEquipmentRequest $request): JsonResponse
     {
-        $equipment = Equipment::create($request->validated());
+        $data = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            $data['photo'] = $request->file('photo')->store('equipments/photos', 'public');
+        }
+
+        $equipment = Equipment::create($data);
         return $this->created($equipment->load('rig:id,name,code'), 'Equipment added');
     }
 
@@ -45,26 +51,52 @@ class EquipmentController extends BaseApiController
     /** PUT /api/equipments/{equipment} */
     public function update(UpdateEquipmentRequest $request, Equipment $equipment): JsonResponse
     {
-        $equipment->update($request->validated());
+        $data = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            if ($equipment->photo) {
+                Storage::disk('public')->delete($equipment->photo);
+            }
+            $data['photo'] = $request->file('photo')->store('equipments/photos', 'public');
+        }
+
+        $equipment->update($data);
         return $this->success($equipment->fresh('rig:id,name,code'), 'Equipment updated');
     }
 
     /** DELETE /api/equipments/{equipment} */
     public function destroy(Equipment $equipment): JsonResponse
     {
+        if ($equipment->photo) {
+            Storage::disk('public')->delete($equipment->photo);
+        }
+
         $equipment->delete();
         return $this->success(null, 'Equipment deleted');
+    }
+
+    /** DELETE /api/equipments/{equipment}/photo */
+    public function deletePhoto(Equipment $equipment): JsonResponse
+    {
+        if (!$equipment->photo) {
+            return $this->error('No photo to delete', 404);
+        }
+
+        Storage::disk('public')->delete($equipment->photo);
+        $equipment->update(['photo' => null]);
+
+        return $this->success(null, 'Photo deleted');
     }
 
     /** GET /api/equipments/stats */
     public function stats(): JsonResponse
     {
         return $this->success([
-            'total'      => Equipment::count('name'),
-            'deployed'   => Equipment::whereNotNull('current_rig_id')->count(),
-            'unassigned' => Equipment::whereNull('current_rig_id')->count(),
-            'operational'=> Equipment::where('status', 'operational')->count(),
-            'maintenance'=> Equipment::where('status', 'maintenance')->count(),
+            'total'       => Equipment::count('name'),
+            'deployed'    => Equipment::whereNotNull('current_rig_id')->count(),
+            'unassigned'  => Equipment::whereNull('current_rig_id')->count(),
+            'operational' => Equipment::where('status', 'operational')->count(),
+            'maintenance' => Equipment::where('status', 'maintenance')->count(),
         ]);
     }
 }
