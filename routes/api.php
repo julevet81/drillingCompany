@@ -116,8 +116,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('employees')->group(function () {
         Route::get('stats',                       [EmployeeController::class, 'stats']);
         Route::patch('{employee}/status',         [EmployeeController::class, 'updateStatus']);
+        Route::get('/',                            [EmployeeController::class, 'index']);
+        Route::post('/',                           [EmployeeController::class, 'store']);
+        Route::get('{employee}',                     [EmployeeController::class, 'show']);
+        Route::put('{employee}',                    [EmployeeController::class, 'update']);
+        Route::delete('{employee}',                  [EmployeeController::class, 'destroy']);
+
     });
-    Route::apiResource('employees', EmployeeController::class);
+    //Route::apiResource('employees', EmployeeController::class);
+
+    
+    Route::post('employees/{employee}', [EmployeeController::class, 'update']);
 
     // ── Shifts ────────────────────────────────────────────────────────
     Route::prefix('shifts')->group(function () {
@@ -129,8 +138,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ── Equipment ─────────────────────────────────────────────────────
     Route::prefix('equipments')->group(function () {
         Route::get('stats',                       [EquipmentController::class, 'stats']);
+        Route::delete('{equipment}/photo',        [EquipmentController::class, 'deletePhoto']);
+        Route::get('/',                           [EquipmentController::class, 'index']);
+        Route::post('/',                          [EquipmentController::class, 'store']);
+        Route::get('{equipment}',                 [EquipmentController::class, 'show']);
+        Route::post('{equipment}',                [EquipmentController::class, 'update']);
+        Route::delete('{equipment}',              [EquipmentController::class, 'destroy']);
     });
-    Route::apiResource('equipments', EquipmentController::class);
+    //Route::apiResource('equipments', EquipmentController::class);
 
     // ── Users Management ─────────────────────────────────────────────
     // All user management is admin-only
@@ -140,8 +155,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::prefix('users')->group(function () {
             Route::get('stats',                   [UserController::class, 'stats']);
             Route::patch('{user}/toggle-active',  [UserController::class, 'toggleActive']);
-            Route::post('{user}/assign-role',    [UserController::class, 'assignRole']);
+            Route::post('{user}/assign-role',     [UserController::class, 'assignRole']);
+            Route::get('/',                       [UserController::class, 'index']);
+            Route::post('/',                      [UserController::class, 'store']);
+            Route::get('{user}',                  [UserController::class, 'show']);
+            Route::post('{user}',                 [UserController::class, 'update']);
+            Route::delete('{user}',               [UserController::class, 'destroy']);
         });
-        Route::apiResource('users', UserController::class);
+        //Route::apiResource('users', UserController::class);
     });
 });
