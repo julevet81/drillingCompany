@@ -31,6 +31,7 @@ class AuthController extends BaseApiController
                 'email' => $data['email'],
                 'phone' => $data['phone'] ?? null,
                 'password' => Hash::make($data['password']),
+                
             ]);
 
             return $this->created($user, 'Registration successful. Please log in.');
@@ -87,7 +88,7 @@ class AuthController extends BaseApiController
             'email'        => $user->email,
             'phone'        => $user->phone,
             'is_active'    => $user->is_active,
-            'photo'        => $user->photo ? asset('storage/' . $user->photo) : null,
+            'photo'        => $user->photo ? asset('../storage/' . $user->photo) : null,
             'managed_rigs' => $user->managedRigs,
             'roles'        => $user->roles->pluck('name')->values(),
             'created_at'   => $user->created_at?->format('Y-m-d'),
@@ -101,13 +102,19 @@ class AuthController extends BaseApiController
         $data = $request->validated();
     
         if ($request->hasFile('photo')) {
+
             // حذف الصورة القديمة إن وجدت
-            if ($user->photo) {
-                Storage::disk('public')->delete($user->photo);
+            if ($user->photo && file_exists(public_path($user->photo))) {
+                unlink(public_path($user->photo));
             }
-    
-            // تخزين الصورة الجديدة
-            $data['photo'] = $request->file('photo')->store('users/photos', 'public');
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/users'), $filename);
+
+            $data['photo'] = 'uploads/users/' . $filename;
         }
     
         $user->update($data);

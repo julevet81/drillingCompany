@@ -57,7 +57,14 @@ class UserController extends BaseApiController
         $data['password'] = Hash::make($request->password);
 
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('users/photos', 'public');
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/users'), $filename);
+
+            $data['photo'] = 'uploads/users/' . $filename;
         }
 
         $user = User::create($data);
@@ -81,11 +88,18 @@ class UserController extends BaseApiController
         }
 
         if ($request->hasFile('photo')) {
-            // حذف الصورة القديمة إن وجدت
-            if ($user->photo) {
-                Storage::disk('public')->delete($user->photo);
+
+            if ($user->photo && file_exists(public_path($user->photo))) {
+                unlink(public_path($user->photo));
             }
-            $data['photo'] = $request->file('photo')->store('users/photos', 'public');
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/users'), $filename);
+
+            $data['photo'] = 'uploads/users/' . $filename;
         }
 
         $user->update($data);
@@ -101,9 +115,13 @@ class UserController extends BaseApiController
         }
 
         // حذف الصورة عند حذف المستخدم
-        if ($user->photo) {
-            Storage::disk('public')->delete($user->photo);
+        if (file_exists(public_path($user->photo))) {
+            unlink(public_path($user->photo));
         }
+
+        $user->update([
+            'photo' => null
+        ]);
 
         $user->tokens()->delete();
         $user->delete();

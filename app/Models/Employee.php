@@ -20,6 +20,13 @@ class Employee extends Model
         return $this->belongsTo(Position::class);
     }
 
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo
+        ? asset($this->photo)
+        : null;
+    }
+
     public function shifts(): BelongsToMany
     {
         return $this->belongsToMany(Shift::class, 'employee_shifts')

@@ -28,8 +28,8 @@ class Equipment extends Model
     public function getPhotoUrlAttribute(): ?string
     {
         return $this->photo
-            ? url('storage/' . ltrim($this->photo, '/'))
-            : null;
+        ? asset($this->photo)
+        : null;
     }
 
     public function rig(): BelongsTo
