@@ -8,6 +8,7 @@ class UpdateProfileRequest extends FormRequest {
             'full_name' => ['sometimes','string','max:255'],
             'phone'     => ['nullable','string','max:20'],
             'email'     => ['sometimes','email', Rule::unique('users')->ignore($this->user()->id)],
+            'photo'     => ['nullable','image','max:2048', 'mimes:jpg,jpeg,png,gif'],
         ];
     }
 }

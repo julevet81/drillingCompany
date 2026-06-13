@@ -41,30 +41,34 @@ class MaterialController extends BaseApiController
      */
     public function fuelStats(): JsonResponse
     {
+        $yesterday = today()->subDay();
+    
         $fuelMaterials = RigMaterial::with('rig:id,name,code')
             ->whereHas('materialType', fn ($q) => $q->where('name', 'Diesel Fuel'))
             ->get();
-
-        $totalCapacity = $fuelMaterials->sum('capacity');
-        $currentStock  = $fuelMaterials->sum('quantity');
-
-        $dailyConsumption = MaterialLog::whereHas(
-            'rigMaterial',
-            fn ($q) => $q->whereHas('materialType', fn ($q2) => $q2->where('name', 'Diesel Fuel'))
-        )
-            ->whereDate('log_date', today()->subDay())
-            ->sum('consumed');
-
-        $avgDaysRemaining = $dailyConsumption > 0
-            ? round($currentStock / $dailyConsumption)
-            : null;
-
-        return $this->success([
-            'total_capacity_l'    => (float) $totalCapacity,
-            'current_stock_l'     => (float) $currentStock,
-            'daily_consumption_l' => (float) $dailyConsumption,
-            'avg_days_remaining'  => $avgDaysRemaining,
-        ]);
+    
+        $stats = $fuelMaterials->map(function ($material) use ($yesterday) {
+            $dailyConsumption = MaterialLog::where('rig_material_id', $material->id)
+                ->whereDate('log_date', $yesterday)
+                ->sum('consumed');
+    
+            $avgDaysRemaining = $dailyConsumption > 0
+                ? round($material->quantity / $dailyConsumption)
+                : null;
+    
+            return [
+                'rig_id'              => $material->rig_id,
+                'rig_name'            => $material->rig->name ?? null,
+                'rig_code'            => $material->rig->code ?? null,
+                'total_capacity_l'    => (float) $material->capacity,
+                'current_stock_l'     => (float) $material->quantity,
+                'daily_consumption_l' => (float) $dailyConsumption,
+                'avg_days_remaining'  => $avgDaysRemaining,
+                'filled_percentage'   => $material->filled_percentage,
+            ];
+        });
+    
+        return $this->success($stats);
     }
 
     /**

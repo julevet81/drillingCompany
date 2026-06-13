@@ -49,7 +49,7 @@ class AuthController extends BaseApiController
             return $this->error('Account is deactivated. Contact administrator.', 403);
         }
 
-        $user->tokens()->delete();
+        //$user->tokens()->delete();
 
         $token = $user->createToken('api-token', ['*'], now()->addDays(30))->plainTextToken;
 
@@ -60,6 +60,7 @@ class AuthController extends BaseApiController
                 'full_name'   => $user->full_name,
                 'email'       => $user->email,
                 'phone'       => $user->phone,
+                'photo'       => $user->photo ? asset('storage/' . $user->photo) : null,
                 'is_active'   => $user->is_active,
                 'roles'       => $user->getRoleNames(),           // ['admin', 'editor']
                 'permissions' => $user->getAllPermissions()->pluck('name'), // ['edit posts', ...]
@@ -85,6 +86,7 @@ class AuthController extends BaseApiController
             'email'        => $user->email,
             'phone'        => $user->phone,
             'is_active'    => $user->is_active,
+            'photo'        => $user->photo ? asset('storage/' . $user->photo) : null,
             'managed_rigs' => $user->managedRigs,
             'roles'        => $user->roles->pluck('name')->values(),
             'created_at'   => $user->created_at?->format('Y-m-d'),
