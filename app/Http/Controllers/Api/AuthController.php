@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends BaseApiController
@@ -96,8 +97,22 @@ class AuthController extends BaseApiController
     /** PUT /api/auth/profile */
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
-        $request->user()->update($request->validated());
-        return $this->success($request->user(), 'Profile updated');
+        $user = $request->user();
+        $data = $request->validated();
+    
+        if ($request->hasFile('photo')) {
+            // حذف الصورة القديمة إن وجدت
+            if ($user->photo) {
+                Storage::disk('public')->delete($user->photo);
+            }
+    
+            // تخزين الصورة الجديدة
+            $data['photo'] = $request->file('photo')->store('users/photos', 'public');
+        }
+    
+        $user->update($data);
+    
+        return $this->success($user, 'Profile updated');
     }
 
     /** PUT /api/auth/password */
