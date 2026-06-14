@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends BaseApiController
@@ -53,17 +54,11 @@ class UserController extends BaseApiController
     public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
+        unset($data['image'], $data['avatar'], $data['file']);
         $data['password'] = Hash::make($request->password);
 
-        if ($request->hasFile('photo')) {
-
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/users'), $filename);
-
-            $data['photo'] = 'uploads/users/' . $filename;
+        if ($file = $this->photoFile($request)) {
+            $data['photo'] = $this->storePhoto($file);
         }
 
         $user = User::create($data);
@@ -81,25 +76,19 @@ class UserController extends BaseApiController
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
-        unset($data['photo']);
+        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
         if (isset($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         }
 
-        if ($request->hasFile('photo')) {
+        if ($file = $this->photoFile($request)) {
 
             if ($user->photo && file_exists(public_path($user->photo))) {
                 unlink(public_path($user->photo));
             }
 
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/users'), $filename);
-
-            $data['photo'] = 'uploads/users/' . $filename;
+            $data['photo'] = $this->storePhoto($file);
         }
 
         $user->update($data);
@@ -181,5 +170,28 @@ class UserController extends BaseApiController
         return $this->success([
             'user' => $user->fresh('roles')
         ], 'Role assigned successfully');
+    }
+
+    private function photoFile(Request $request): ?UploadedFile
+    {
+        foreach (['photo', 'image', 'avatar', 'file'] as $field) {
+            if ($request->hasFile($field)) {
+                return $request->file($field);
+            }
+        }
+
+        return null;
+    }
+
+    private function storePhoto(UploadedFile $file): string
+    {
+        if (!is_dir(public_path('uploads/users'))) {
+            mkdir(public_path('uploads/users'), 0755, true);
+        }
+
+        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $file->move(public_path('uploads/users'), $filename);
+
+        return 'uploads/users/' . $filename;
     }
 }
