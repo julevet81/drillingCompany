@@ -81,6 +81,7 @@ class UserController extends BaseApiController
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
+        unset($data['photo']);
 
         if (isset($data['password'])) {
             $data['password'] = Hash::make($data['password']);

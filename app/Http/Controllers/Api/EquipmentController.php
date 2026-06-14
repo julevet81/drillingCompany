@@ -58,6 +58,7 @@ class EquipmentController extends BaseApiController
     public function update(UpdateEquipmentRequest $request, Equipment $equipment): JsonResponse
     {
         $data = $request->validated();
+        unset($data['photo']);
 
         if ($request->hasFile('photo')) {
 

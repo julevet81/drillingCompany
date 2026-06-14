@@ -81,6 +81,8 @@ class EmployeeController extends BaseApiController
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse
     {
         $data = $request->validated();
+        unset($data['photo']);
+
         if ($request->hasFile('photo')) {
 
             if ($employee->photo && file_exists(public_path($employee->photo))) {

@@ -99,6 +99,7 @@ class AuthController extends BaseApiController
     {
         $user = $request->user();
         $data = $request->validated();
+        unset($data['photo']);
     
         if ($request->hasFile('photo')) {
 
