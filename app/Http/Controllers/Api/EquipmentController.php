@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Equipment\StoreEquipmentRequest;
 use App\Http\Requests\Equipment\UpdateEquipmentRequest;
 use App\Models\Equipment;
+use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,20 +32,14 @@ class EquipmentController extends BaseApiController
     public function store(StoreEquipmentRequest $request): JsonResponse
     {
         $data = $request->validated();
+        unset($data['image'], $data['avatar'], $data['file']);
 
-        if ($request->hasFile('photo')) {
-
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/equipments'), $filename);
-
-            $data['photo'] = 'uploads/equipments/' . $filename;
+        if ($file = PublicPhoto::fromRequest($request)) {
+            $data['photo'] = PublicPhoto::store($file, 'uploads/equipments');
         }
 
         $equipment = Equipment::create($data);
-        return $this->created($equipment->load('rig:id,name,code'), 'Equipment added');
+        return $this->created($equipment->refresh()->load('rig:id,name,code'), 'Equipment added');
     }
 
     /** GET /api/equipments/{equipment} */
@@ -58,33 +53,23 @@ class EquipmentController extends BaseApiController
     public function update(UpdateEquipmentRequest $request, Equipment $equipment): JsonResponse
     {
         $data = $request->validated();
-        unset($data['photo']);
+        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
-        if ($request->hasFile('photo')) {
+        if ($file = PublicPhoto::fromRequest($request)) {
 
-            if ($equipment->photo && file_exists(public_path($equipment->photo))) {
-                unlink(public_path($equipment->photo));
-            }
+            PublicPhoto::delete($equipment->photo);
 
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/equipments'), $filename);
-
-            $data['photo'] = 'uploads/equipments/' . $filename;
+            $data['photo'] = PublicPhoto::store($file, 'uploads/equipments');
         }
 
         $equipment->update($data);
-        return $this->success($equipment->fresh('rig:id,name,code'), 'Equipment updated');
+        return $this->success($equipment->refresh()->load('rig:id,name,code'), 'Equipment updated');
     }
 
     /** DELETE /api/equipments/{equipment} */
     public function destroy(Equipment $equipment): JsonResponse
     {
-        if ($equipment->photo && file_exists(public_path($equipment->photo))) {
-            unlink(public_path($equipment->photo));
-        }
+        PublicPhoto::delete($equipment->photo);
 
         $equipment->delete();
         return $this->success(null, 'Equipment deleted');
@@ -97,9 +82,7 @@ class EquipmentController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        if (file_exists(public_path($equipment->photo))) {
-            unlink(public_path($equipment->photo));
-        }
+        PublicPhoto::delete($equipment->photo);
 
         $equipment->update(['photo' => null]);
 

@@ -9,6 +9,9 @@ class UpdateProfileRequest extends FormRequest {
             'phone'     => ['nullable','string','max:20'],
             'email'     => ['sometimes','email', Rule::unique('users')->ignore($this->user()->id)],
             'photo'     => ['nullable','image','max:2048', 'mimes:jpg,jpeg,png,gif'],
+            'image'     => ['nullable','image','max:2048', 'mimes:jpg,jpeg,png,gif'],
+            'avatar'    => ['nullable','image','max:2048', 'mimes:jpg,jpeg,png,gif'],
+            'file'      => ['nullable','image','max:2048', 'mimes:jpg,jpeg,png,gif'],
         ];
     }
 }

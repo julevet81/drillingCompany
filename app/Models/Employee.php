@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Shift;
+use App\Support\PublicPhoto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,8 @@ class Employee extends Model
 
     protected $fillable = ['full_name', 'photo', 'position_id'];
 
+    protected $appends = ['photo_url'];
+
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class);
@@ -22,9 +25,7 @@ class Employee extends Model
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo
-        ? asset($this->photo)
-        : null;
+        return PublicPhoto::url($this->photo);
     }
 
     public function shifts(): BelongsToMany

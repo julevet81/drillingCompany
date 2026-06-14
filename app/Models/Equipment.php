@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicPhoto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,9 +28,7 @@ class Equipment extends Model
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo
-        ? asset($this->photo)
-        : null;
+        return PublicPhoto::url($this->photo);
     }
 
     public function rig(): BelongsTo

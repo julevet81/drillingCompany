@@ -6,6 +6,7 @@ use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Models\User;
+use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -61,7 +62,8 @@ class AuthController extends BaseApiController
                 'full_name'   => $user->full_name,
                 'email'       => $user->email,
                 'phone'       => $user->phone,
-                'photo'       => $user->photo ? asset($user->photo) : null,
+                'photo'       => $user->photo,
+                'photo_url'   => $user->photo_url,
                 'is_active'   => $user->is_active,
                 'roles'       => $user->getRoleNames(),           // ['admin', 'editor']
                 'permissions' => $user->getAllPermissions()->pluck('name'), // ['edit posts', ...]
@@ -87,7 +89,8 @@ class AuthController extends BaseApiController
             'email'        => $user->email,
             'phone'        => $user->phone,
             'is_active'    => $user->is_active,
-            'photo'        => $user->photo ? asset($user->photo) : null,
+            'photo'        => $user->photo,
+            'photo_url'    => $user->photo_url,
             'managed_rigs' => $user->managedRigs,
             'roles'        => $user->roles->pluck('name')->values(),
             'created_at'   => $user->created_at?->format('Y-m-d'),
@@ -99,27 +102,19 @@ class AuthController extends BaseApiController
     {
         $user = $request->user();
         $data = $request->validated();
-        unset($data['photo']);
+        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
     
-        if ($request->hasFile('photo')) {
+        if ($file = PublicPhoto::fromRequest($request)) {
 
             // حذف الصورة القديمة إن وجدت
-            if ($user->photo && file_exists(public_path($user->photo))) {
-                unlink(public_path($user->photo));
-            }
+            PublicPhoto::delete($user->photo);
 
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/users'), $filename);
-
-            $data['photo'] = 'uploads/users/' . $filename;
+            $data['photo'] = PublicPhoto::store($file, 'uploads/users');
         }
     
         $user->update($data);
     
-        return $this->success($user, 'Profile updated');
+        return $this->success($user->refresh(), 'Profile updated');
     }
 
     /** PUT /api/auth/password */

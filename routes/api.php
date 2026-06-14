@@ -41,7 +41,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('logout',  [AuthController::class, 'logout']);
         Route::get('me',       [AuthController::class, 'me']);
-        Route::put('profile',  [AuthController::class, 'updateProfile']);
+        Route::post('profile',  [AuthController::class, 'updateProfile']);
         Route::put('password', [AuthController::class, 'changePassword']);
     });
 
@@ -119,7 +119,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/',                            [EmployeeController::class, 'index']);
         Route::post('/',                           [EmployeeController::class, 'store']);
         Route::get('{employee}',                     [EmployeeController::class, 'show']);
-        Route::put('{employee}',                    [EmployeeController::class, 'update']);
+        Route::post('{employee}',                    [EmployeeController::class, 'update']);
         Route::delete('{employee}',                  [EmployeeController::class, 'destroy']);
 
     });

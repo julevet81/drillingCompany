@@ -19,6 +19,9 @@ class UpdateEquipmentRequest extends FormRequest
             'marque'         => ['nullable', 'string', 'max:100'],
             'serial_number'  => ['nullable', 'string', 'max:100', Rule::unique('equipments', 'serial_number')->ignore($id)],
             'photo'          => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'image'          => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'avatar'         => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'file'           => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'status'         => ['sometimes', Rule::in(['operational', 'maintenance', 'out_of_service'])],
         ];
     }

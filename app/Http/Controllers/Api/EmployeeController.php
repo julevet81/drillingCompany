@@ -7,6 +7,7 @@ use App\Http\Requests\Employee\UpdateEmployeeRequest;
 use App\Models\Employee;
 use App\Models\EmployeeShift;
 use App\Models\Position;
+use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,17 +58,13 @@ class EmployeeController extends BaseApiController
     public function store(StoreEmployeeRequest $request): JsonResponse
     {
         $data = $request->validated();
-        if ($request->hasFile('photo')) {
+        unset($data['image'], $data['avatar'], $data['file']);
 
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/employees'), $filename);
-
-            $data['photo'] = 'uploads/employees/' . $filename;
+        if ($file = PublicPhoto::fromRequest($request)) {
+            $data['photo'] = PublicPhoto::store($file, 'uploads/employees');
         }
-        return $this->created(Employee::create($data)->load('position'), 'Employee added');
+
+        return $this->created(Employee::create($data)->refresh()->load('position'), 'Employee added');
     }
 
     /** GET /api/employees/{employee} */
@@ -81,32 +78,22 @@ class EmployeeController extends BaseApiController
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse
     {
         $data = $request->validated();
-        unset($data['photo']);
+        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
-        if ($request->hasFile('photo')) {
+        if ($file = PublicPhoto::fromRequest($request)) {
 
-            if ($employee->photo && file_exists(public_path($employee->photo))) {
-                unlink(public_path($employee->photo));
-            }
+            PublicPhoto::delete($employee->photo);
 
-            $file = $request->file('photo');
-
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $file->move(public_path('uploads/employees'), $filename);
-
-            $data['photo'] = 'uploads/employees/' . $filename;
+            $data['photo'] = PublicPhoto::store($file, 'uploads/employees');
         }
         $employee->update($data);
-        return $this->success($employee->fresh('position'), 'Employee updated');
+        return $this->success($employee->refresh()->load('position'), 'Employee updated');
     }
 
     /** DELETE /api/employees/{employee} */
     public function destroy(Employee $employee): JsonResponse
     {
-        if ($employee->photo && file_exists(public_path($employee->photo))) {
-            unlink(public_path($employee->photo));
-        }
+        PublicPhoto::delete($employee->photo);
         $employee->delete($employee->id);
         return $this->success(null, 'Employee deleted');
     }

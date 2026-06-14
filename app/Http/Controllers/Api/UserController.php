@@ -6,9 +6,9 @@ use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends BaseApiController
@@ -58,8 +58,8 @@ class UserController extends BaseApiController
         $data['password'] = Hash::make($request->password);
 
         $photoPath = null;
-        if ($file = $this->photoFile($request)) {
-            $photoPath = $this->storePhoto($file);
+        if ($file = PublicPhoto::fromRequest($request)) {
+            $photoPath = PublicPhoto::store($file, 'uploads/users');
         }
 
         $user = User::create($data);
@@ -89,13 +89,11 @@ class UserController extends BaseApiController
         }
 
         $photoPath = null;
-        if ($file = $this->photoFile($request)) {
+        if ($file = PublicPhoto::fromRequest($request)) {
 
-            if ($user->photo && file_exists(public_path($user->photo))) {
-                unlink(public_path($user->photo));
-            }
+            PublicPhoto::delete($user->photo);
 
-            $photoPath = $this->storePhoto($file);
+            $photoPath = PublicPhoto::store($file, 'uploads/users');
         }
 
         $user->fill($data);
@@ -117,9 +115,7 @@ class UserController extends BaseApiController
         }
 
         // حذف الصورة عند حذف المستخدم
-        if ($user->photo && file_exists(public_path($user->photo))) {
-            unlink(public_path($user->photo));
-        }
+        PublicPhoto::delete($user->photo);
 
         $user->update([
             'photo' => null
@@ -156,9 +152,7 @@ class UserController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        if (file_exists(public_path($user->photo))) {
-            unlink(public_path($user->photo));
-        }
+        PublicPhoto::delete($user->photo);
 
         $user->update(['photo' => null]);
 
@@ -185,26 +179,4 @@ class UserController extends BaseApiController
         ], 'Role assigned successfully');
     }
 
-    private function photoFile(Request $request): ?UploadedFile
-    {
-        foreach (['photo', 'image', 'avatar', 'file'] as $field) {
-            if ($request->hasFile($field)) {
-                return $request->file($field);
-            }
-        }
-
-        return null;
-    }
-
-    private function storePhoto(UploadedFile $file): string
-    {
-        if (!is_dir(public_path('uploads/users'))) {
-            mkdir(public_path('uploads/users'), 0755, true);
-        }
-
-        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $file->move(public_path('uploads/users'), $filename);
-
-        return 'uploads/users/' . $filename;
-    }
 }
