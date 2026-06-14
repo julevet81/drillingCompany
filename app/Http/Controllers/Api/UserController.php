@@ -54,15 +54,21 @@ class UserController extends BaseApiController
     public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
-        unset($data['image'], $data['avatar'], $data['file']);
+        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
         $data['password'] = Hash::make($request->password);
 
+        $photoPath = null;
         if ($file = $this->photoFile($request)) {
-            $data['photo'] = $this->storePhoto($file);
+            $photoPath = $this->storePhoto($file);
         }
 
         $user = User::create($data);
-        return $this->created($user->fresh('roles'), 'User created');
+
+        if ($photoPath) {
+            $user->forceFill(['photo' => $photoPath])->save();
+        }
+
+        return $this->created($user->refresh()->load('roles'), 'User created');
     }
 
     /** GET /api/users/{user} */
@@ -82,17 +88,25 @@ class UserController extends BaseApiController
             $data['password'] = Hash::make($data['password']);
         }
 
+        $photoPath = null;
         if ($file = $this->photoFile($request)) {
 
             if ($user->photo && file_exists(public_path($user->photo))) {
                 unlink(public_path($user->photo));
             }
 
-            $data['photo'] = $this->storePhoto($file);
+            $photoPath = $this->storePhoto($file);
         }
 
-        $user->update($data);
-        return $this->success($user->fresh('roles'), 'User updated');
+        $user->fill($data);
+
+        if ($photoPath) {
+            $user->photo = $photoPath;
+        }
+
+        $user->save();
+
+        return $this->success($user->refresh()->load('roles'), 'User updated');
     }
 
     /** DELETE /api/users/{user} */
