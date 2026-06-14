@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends BaseApiController
@@ -62,7 +61,7 @@ class AuthController extends BaseApiController
                 'full_name'   => $user->full_name,
                 'email'       => $user->email,
                 'phone'       => $user->phone,
-                'photo'       => $user->photo ? asset('storage/' . $user->photo) : null,
+                'photo'       => $user->photo ? asset($user->photo) : null,
                 'is_active'   => $user->is_active,
                 'roles'       => $user->getRoleNames(),           // ['admin', 'editor']
                 'permissions' => $user->getAllPermissions()->pluck('name'), // ['edit posts', ...]
@@ -88,7 +87,7 @@ class AuthController extends BaseApiController
             'email'        => $user->email,
             'phone'        => $user->phone,
             'is_active'    => $user->is_active,
-            'photo'        => $user->photo ? asset('../storage/' . $user->photo) : null,
+            'photo'        => $user->photo ? asset($user->photo) : null,
             'managed_rigs' => $user->managedRigs,
             'roles'        => $user->roles->pluck('name')->values(),
             'created_at'   => $user->created_at?->format('Y-m-d'),

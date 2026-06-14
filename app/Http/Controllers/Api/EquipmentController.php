@@ -7,7 +7,6 @@ use App\Http\Requests\Equipment\UpdateEquipmentRequest;
 use App\Models\Equipment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class EquipmentController extends BaseApiController
 {
@@ -97,7 +96,10 @@ class EquipmentController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        Storage::disk('public')->delete($equipment->photo);
+        if (file_exists(public_path($equipment->photo))) {
+            unlink(public_path($equipment->photo));
+        }
+
         $equipment->update(['photo' => null]);
 
         return $this->success(null, 'Photo deleted');

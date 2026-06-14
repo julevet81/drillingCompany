@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 
 class UserController extends BaseApiController
 {
@@ -115,7 +114,7 @@ class UserController extends BaseApiController
         }
 
         // حذف الصورة عند حذف المستخدم
-        if (file_exists(public_path($user->photo))) {
+        if ($user->photo && file_exists(public_path($user->photo))) {
             unlink(public_path($user->photo));
         }
 
@@ -154,7 +153,10 @@ class UserController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        Storage::disk('public')->delete($user->photo);
+        if (file_exists(public_path($user->photo))) {
+            unlink(public_path($user->photo));
+        }
+
         $user->update(['photo' => null]);
 
         return $this->success(null, 'Photo deleted');

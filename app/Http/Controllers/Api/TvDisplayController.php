@@ -144,7 +144,7 @@ class TvDisplayController extends BaseApiController
                             'full_name' => $emp->full_name,
                             'position' => $emp->position?->name,
                             'photo'    => $emp->photo
-                                ? asset('storage/' . $emp->photo)
+                                ? asset($emp->photo)
                                 : null,
                             'shift'    => $shift->periode,
                         ]);
@@ -198,7 +198,7 @@ class TvDisplayController extends BaseApiController
             'name'     => $this->shortName($emp->full_name),
             'full_name' => $emp->full_name,
             'position' => $emp->position?->name,
-            'photo'    => $emp->photo ? asset('storage/' . $emp->photo) : null,
+            'photo'    => $emp->photo ? asset($emp->photo) : null,
             'rig'      => $emp->shifts->first()?->rig?->code,
         ])->values()->toArray();
     }
