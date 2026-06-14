@@ -62,7 +62,7 @@ class UserController extends BaseApiController
         }
 
         $user = User::create($data);
-        return $this->created($user->load('roles'), 'User created');
+        return $this->created($user->fresh('roles'), 'User created');
     }
 
     /** GET /api/users/{user} */
@@ -92,8 +92,7 @@ class UserController extends BaseApiController
         }
 
         $user->update($data);
-        $user->load('roles');
-        return $this->success($user, 'User updated');
+        return $this->success($user->fresh('roles'), 'User updated');
     }
 
     /** DELETE /api/users/{user} */
