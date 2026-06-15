@@ -92,7 +92,7 @@ class RigController extends BaseApiController
             'equipments:id,current_rig_id,name,marque,serial_number,hours_of_operation,status',
             'drillingTools.toolType:id,name',
             'rigMaterials.materialType:id,name,unit',
-            'shifts' => fn ($q) => $q
+            'shifts' => fn($q) => $q
                 ->whereDate('date', today())
                 ->with(['employees:id,full_name,position_id', 'employees.position:id,name']),
         ]);
@@ -108,7 +108,7 @@ class RigController extends BaseApiController
             ->where('report_date', '>=', now()->subDays(14))
             ->orderBy('report_date')
             ->get(['report_date', 'depth_end'])
-            ->map(fn ($r) => [
+            ->map(fn($r) => [
                 'date'  => $r->report_date->format('m-d'),
                 'depth' => (float) $r->depth_end,
             ]);
@@ -128,18 +128,25 @@ class RigController extends BaseApiController
 
         return $this->success([
             'rig' => array_merge($rig->only([
-                'id', 'name', 'code', 'status', 'drilling_phase',
-                'current_depth', 'target_depth',
-                'start_date', 'end_date', 'notes'
-                ]), [
+                'id',
+                'name',
+                'code',
+                'status',
+                'drilling_phase',
+                'current_depth',
+                'target_depth',
+                'start_date',
+                'end_date',
+                'notes'
+            ]), [
                 'location'           => $rig->location?->name,
                 'manager'            => $rig->manager?->full_name,
                 'progress_percentage' => $rig->progress_percentage,
                 'days_remaining'     => $rig->days_remaining,
-             ]),
+            ]),
             'equipments'     => $rig->equipments,
             'drilling_tools' => $rig->drillingTools,
-            'materials'      => $rig->rigMaterials->map(fn ($m) => [
+            'materials'      => $rig->rigMaterials->map(fn($m) => [
                 'id'       => $m->id,
                 'name'     => $m->materialType?->name,
                 'unit'     => $m->materialType?->unit,

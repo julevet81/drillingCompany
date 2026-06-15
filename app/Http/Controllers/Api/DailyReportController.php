@@ -112,16 +112,16 @@ class DailyReportController extends BaseApiController
                 ])->toArray());
             }
 
-            // Equipments
-            if ($request->filled('equipments')) {
-                DailyReportEquipment::insert(collect($request->equipments)->map(fn ($e) => [
-                    'report_id'    => $report->id,
-                    'equipment_id' => $e['equipment_id'],
-                    'status'       => $e['status'] ?? 'Operational',
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
-                ])->toArray());
-            }
+                // Equipments
+                if ($request->filled('equipments')) {
+                    foreach ($request->equipments as $e) {
+                        DailyReportEquipment::create([
+                            'report_id'    => $report->id,
+                            'equipment_id' => $e['equipment_id'],
+                            'status'       => $e['status'] ?? 'Operational',
+                        ]);
+                    }
+                }
 
             // Shifts / attendance
             if ($request->filled('shifts')) {
@@ -181,20 +181,36 @@ class DailyReportController extends BaseApiController
     }
 
     /** GET /api/daily-reports/{report} */
-    public function show(DailyReport $report): JsonResponse
+    public function show(DailyReport $daily_report): JsonResponse
     {
-        $report->load([
+        $daily_report->load([
             'rig:id,name,code,location_id',
             'rig.location:id,name',
             'author:id,full_name',
-            'tools.drillingTool.toolType:id,name',          // ✓ موجودة في DailyReportTool
-            'reportEquipments.equipment:id,name,serial_number,status', // ✓ موجودة في DailyReportEquipment
-            'reportEmployees.shift.employees:id,full_name', // ✗ الخطأ هنا - Shift ليس فيها employees مباشرة
+            'tools.drillingTool.toolType:id,name',
+            'reportEquipments.equipment:id,name,serial_number,status',
+            'reportEmployees.shift.employees:id,full_name,position_id',
+            'reportEmployees.shift.employees.position:id,name',
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
 
-        return $this->success(array_merge($report->toArray(), [
-            'total_bha_length' => $report->total_bha_length,
+        // بناء قائمة الموظفين من الـ shifts
+        $employees = $daily_report->reportEmployees
+            ->flatMap(fn($re) => $re->shift?->employees->map(fn($emp) => [
+                'id'       => $emp->id,
+                'name'     => $emp->full_name,
+                'position' => $emp->position?->name,
+                'function' => $emp->pivot->function ?? null,
+                'status'   => $emp->pivot->status ?? null,
+                'present'  => $re->present,
+                'shift'    => $re->shift->periode,
+            ]) ?? collect())
+            ->unique('id')
+            ->values();
+
+        return $this->success(array_merge($daily_report->toArray(), [
+            'total_bha_length' => $daily_report->total_bha_length,
+            'employees'        => $employees,
         ]));
     }
 

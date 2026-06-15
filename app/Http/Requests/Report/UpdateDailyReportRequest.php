@@ -27,7 +27,7 @@ class UpdateDailyReportRequest extends FormRequest
 
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
-            'equipments.*.status'       => ['required', 'in:Operational,Maintenance,Out_of_Service'],
+            'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
         ];
     }
 }
