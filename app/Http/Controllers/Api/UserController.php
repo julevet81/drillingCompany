@@ -6,10 +6,10 @@ use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\Role;
 use App\Models\User;
-use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends BaseApiController
 {
@@ -59,14 +59,16 @@ class UserController extends BaseApiController
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
-            $photoPath = PublicPhoto::store($request->file('photo'), 'uploads/users');
+            $photoPath = $request->file('photo')->store('uploads/users', 'public');
         }
 
         $user = User::create($data);
+        $user->photo = $photoPath;
+        $user->save();
 
-        if ($photoPath) {
-            $user->forceFill(['photo' => $photoPath])->save();
-        }
+        // if ($photoPath) {
+        //     $user->forceFill(['photo' => $photoPath])->save();
+        // }
 
         return $this->created($user->refresh()->load('roles'), 'User created');
     }
@@ -92,9 +94,11 @@ class UserController extends BaseApiController
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
-            PublicPhoto::delete($user->photo);
-
-            $photoPath = PublicPhoto::store($file, 'uploads/users');
+            // حذف الصورة القديمة إذا كانت موجودة
+            if ($user->photo) {
+                Storage::disk('public')->delete($user->photo);
+            }
+            $photoPath = $file->store('uploads/users', 'public');
         }
 
         $user->fill($data);
@@ -116,7 +120,9 @@ class UserController extends BaseApiController
         }
 
         // حذف الصورة عند حذف المستخدم
-        PublicPhoto::delete($user->photo);
+        if ($user->photo) {
+            Storage::disk('public')->delete($user->photo);
+        }
 
         $user->update([
             'photo' => null
@@ -153,7 +159,7 @@ class UserController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        PublicPhoto::delete($user->photo);
+        Storage::disk('public')->delete($user->photo);
 
         $user->update(['photo' => null]);
 

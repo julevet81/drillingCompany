@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Equipment\StoreEquipmentRequest;
 use App\Http\Requests\Equipment\UpdateEquipmentRequest;
 use App\Models\Equipment;
-use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class EquipmentController extends BaseApiController
 {
@@ -32,10 +32,9 @@ class EquipmentController extends BaseApiController
     public function store(StoreEquipmentRequest $request): JsonResponse
     {
         $data = $request->validated();
-        unset($data['image'], $data['avatar'], $data['file']);
-
-        if ($file = PublicPhoto::fromRequest($request)) {
-            $data['photo'] = PublicPhoto::store($file, 'uploads/equipments');
+        
+        if ($request->hasFile('photo')) {
+            $data['photo'] = $request->file('photo')->store('uploads/equipments', 'public');
         }
 
         $equipment = Equipment::create($data);
@@ -55,11 +54,11 @@ class EquipmentController extends BaseApiController
         $data = $request->validated();
         unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
-        if ($file = PublicPhoto::fromRequest($request)) {
-
-            PublicPhoto::delete($equipment->photo);
-
-            $data['photo'] = PublicPhoto::store($file, 'uploads/equipments');
+        if ($request->hasFile('photo')) {
+            if ($equipment->photo) {
+                Storage::disk('public')->delete($equipment->photo);
+            }
+            $data['photo'] = $request->file('photo')->store('uploads/equipments', 'public');
         }
 
         $equipment->update($data);
@@ -69,7 +68,7 @@ class EquipmentController extends BaseApiController
     /** DELETE /api/equipments/{equipment} */
     public function destroy(Equipment $equipment): JsonResponse
     {
-        PublicPhoto::delete($equipment->photo);
+        Storage::disk('public')->delete($equipment->photo);
 
         $equipment->delete();
         return $this->success(null, 'Equipment deleted');
@@ -82,7 +81,7 @@ class EquipmentController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        PublicPhoto::delete($equipment->photo);
+        Storage::disk('public')->delete($equipment->photo);
 
         $equipment->update(['photo' => null]);
 

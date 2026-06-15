@@ -7,10 +7,10 @@ use App\Http\Requests\Employee\UpdateEmployeeRequest;
 use App\Models\Employee;
 use App\Models\EmployeeShift;
 use App\Models\Position;
-use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class EmployeeController extends BaseApiController
 {
@@ -58,10 +58,8 @@ class EmployeeController extends BaseApiController
     public function store(StoreEmployeeRequest $request): JsonResponse
     {
         $data = $request->validated();
-        unset($data['image'], $data['avatar'], $data['file']);
-
-        if ($file = PublicPhoto::fromRequest($request)) {
-            $data['photo'] = PublicPhoto::store($file, 'uploads/employees');
+        if ($request->hasFile('photo')) {
+            $data['photo'] = $request->file('photo')->store('uploads/employees', 'public');
         }
 
         return $this->created(Employee::create($data)->refresh()->load('position'), 'Employee added');
@@ -78,14 +76,11 @@ class EmployeeController extends BaseApiController
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse
     {
         $data = $request->validated();
-        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
-        if ($file = PublicPhoto::fromRequest($request)) {
-
-            PublicPhoto::delete($employee->photo);
-
-            $data['photo'] = PublicPhoto::store($file, 'uploads/employees');
+        if ($request->hasFile('photo')) {
+            $data['photo'] = $request->file('photo')->store('uploads/employees', 'public');
         }
+
         $employee->update($data);
         return $this->success($employee->refresh()->load('position'), 'Employee updated');
     }
@@ -93,7 +88,9 @@ class EmployeeController extends BaseApiController
     /** DELETE /api/employees/{employee} */
     public function destroy(Employee $employee): JsonResponse
     {
-        PublicPhoto::delete($employee->photo);
+        if ($employee->photo) {
+            Storage::disk('public')->delete($employee->photo);
+        }
         $employee->delete($employee->id);
         return $this->success(null, 'Employee deleted');
     }
