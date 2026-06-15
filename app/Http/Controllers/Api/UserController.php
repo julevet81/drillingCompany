@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 
 class UserController extends BaseApiController
 {
@@ -54,28 +53,23 @@ class UserController extends BaseApiController
     public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
+
+        // إزالة حقول الصورة من $data لأننا سنتعامل معها يدوياً
         unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
+
         $data['password'] = Hash::make($request->password);
 
-        $filename = null;
+        // معالجة رفع الصورة
         if ($request->hasFile('photo')) {
-
-            $file = $request->file('photo');
-
+            $file     = $request->file('photo');
             $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
             $file->move(public_path('uploads/users'), $filename);
 
+            // حفظ المسار الكامل في قاعدة البيانات
             $data['photo'] = 'uploads/users/' . $filename;
         }
 
         $user = User::create($data);
-        $user->photo = $filename ?? null;
-        $user->save();
-
-        // if ($filename) {
-        //     $user->forceFill(['photo' => $filename   ])->save();
-        // }
 
         return $this->created($user->refresh()->load('roles'), 'User created');
     }
@@ -91,35 +85,30 @@ class UserController extends BaseApiController
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
+
+        // إزالة حقول الصورة من $data لأننا سنتعامل معها يدوياً
         unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
         if (isset($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         }
 
-        $filename = null;
+        // معالجة رفع الصورة الجديدة
         if ($request->hasFile('photo')) {
-
+            // حذف الصورة القديمة إن وُجدت
             if ($user->photo && file_exists(public_path($user->photo))) {
                 unlink(public_path($user->photo));
             }
 
-            $file = $request->file('photo');
-
+            $file     = $request->file('photo');
             $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
             $file->move(public_path('uploads/users'), $filename);
 
+            // حفظ المسار الكامل في قاعدة البيانات
             $data['photo'] = 'uploads/users/' . $filename;
         }
 
-        $user->fill($data);
-
-        if ($filename) {
-            $user->photo = $filename;
-        }
-
-        $user->save();
+        $user->update($data);
 
         return $this->success($user->refresh()->load('roles'), 'User updated');
     }
@@ -136,12 +125,9 @@ class UserController extends BaseApiController
             unlink(public_path($user->photo));
         }
 
-        $user->update([
-            'photo' => null
-        ]);
-
         $user->tokens()->delete();
         $user->delete();
+
         return $this->success(null, 'User deleted');
     }
 
@@ -175,9 +161,7 @@ class UserController extends BaseApiController
             unlink(public_path($user->photo));
         }
 
-        $user->update([
-            'photo' => null
-        ]);
+        $user->update(['photo' => null]);
 
         return $this->success(null, 'Photo deleted');
     }
@@ -188,6 +172,7 @@ class UserController extends BaseApiController
         return $this->success(Role::all());
     }
 
+    /** POST /api/users/{user}/assign-role */
     public function assignRole(Request $request, User $user): JsonResponse
     {
         $request->validate([
@@ -201,5 +186,4 @@ class UserController extends BaseApiController
             'user' => $user->fresh('roles')
         ], 'Role assigned successfully');
     }
-
 }
