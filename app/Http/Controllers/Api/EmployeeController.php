@@ -59,7 +59,14 @@ class EmployeeController extends BaseApiController
     {
         $data = $request->validated();
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('uploads/employees', 'public');
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/employees'), $filename);
+
+            $data['photo'] = 'uploads/employees/' . $filename;
         }
 
         return $this->created(Employee::create($data)->refresh()->load('position'), 'Employee added');
@@ -78,7 +85,18 @@ class EmployeeController extends BaseApiController
         $data = $request->validated();
 
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('uploads/employees', 'public');
+
+            if ($employee->photo && file_exists(public_path($employee->photo))) {
+                unlink(public_path($employee->photo));
+            }
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/employees'), $filename);
+
+            $data['photo'] = 'uploads/employees/' . $filename;
         }
 
         $employee->update($data);
@@ -88,8 +106,8 @@ class EmployeeController extends BaseApiController
     /** DELETE /api/employees/{employee} */
     public function destroy(Employee $employee): JsonResponse
     {
-        if ($employee->photo) {
-            Storage::disk('public')->delete($employee->photo);
+        if ($employee->photo && file_exists(public_path($employee->photo))) {
+            unlink(public_path($employee->photo));
         }
         $employee->delete($employee->id);
         return $this->success(null, 'Employee deleted');

@@ -100,18 +100,30 @@ class AuthController extends BaseApiController
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
+
         $data = $request->validated();
-        unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
-    
+
         if ($request->hasFile('photo')) {
+
+            if ($user->photo && file_exists(public_path($user->photo))) {
+                unlink(public_path($user->photo));
+            }
+
             $file = $request->file('photo');
-            $path = $file->store('public/profile_photos');
-            $data['photo'] = basename($path);
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/users'), $filename);
+
+            $data['photo'] = 'uploads/users/' . $filename;
         }
-    
+
         $user->update($data);
-    
-        return $this->success($user->refresh(), 'Profile updated');
+
+        return $this->success(
+            $user->fresh(),
+            'Profile updated'
+        );
     }
 
     /** PUT /api/auth/password */

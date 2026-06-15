@@ -24,7 +24,9 @@ class Employee extends Model
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo ? asset('storage/profile_photos/' . $this->photo) : null;
+        return $this->photo
+            ? asset($this->photo)
+            : null;
     }
 
     public function shifts(): BelongsToMany

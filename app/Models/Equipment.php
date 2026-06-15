@@ -27,7 +27,9 @@ class Equipment extends Model
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo ? asset('storage/equipment_photos/' . $this->photo) : null;
+        return $this->photo
+            ? asset($this->photo)
+            : null;
     }
 
     public function rig(): BelongsTo

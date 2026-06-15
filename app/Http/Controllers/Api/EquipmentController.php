@@ -32,9 +32,16 @@ class EquipmentController extends BaseApiController
     public function store(StoreEquipmentRequest $request): JsonResponse
     {
         $data = $request->validated();
-        
+
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('uploads/equipments', 'public');
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/equipments'), $filename);
+
+            $data['photo'] = 'uploads/equipments/' . $filename;
         }
 
         $equipment = Equipment::create($data);
@@ -55,10 +62,18 @@ class EquipmentController extends BaseApiController
         unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
 
         if ($request->hasFile('photo')) {
-            if ($equipment->photo) {
-                Storage::disk('public')->delete($equipment->photo);
+
+            if ($equipment->photo && file_exists(public_path($equipment->photo))) {
+                unlink(public_path($equipment->photo));
             }
-            $data['photo'] = $request->file('photo')->store('uploads/equipments', 'public');
+
+            $file = $request->file('photo');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads/equipments'), $filename);
+
+            $data['photo'] = 'uploads/equipments/' . $filename;
         }
 
         $equipment->update($data);
@@ -68,7 +83,10 @@ class EquipmentController extends BaseApiController
     /** DELETE /api/equipments/{equipment} */
     public function destroy(Equipment $equipment): JsonResponse
     {
-        Storage::disk('public')->delete($equipment->photo);
+        if ($equipment->photo && file_exists(public_path($equipment->photo))) {
+            unlink(public_path($equipment->photo));
+        }
+
 
         $equipment->delete();
         return $this->success(null, 'Equipment deleted');
@@ -81,9 +99,13 @@ class EquipmentController extends BaseApiController
             return $this->error('No photo to delete', 404);
         }
 
-        Storage::disk('public')->delete($equipment->photo);
+        if (file_exists(public_path($equipment->photo))) {
+            unlink(public_path($equipment->photo));
+        }
 
-        $equipment->update(['photo' => null]);
+        $equipment->update([
+            'photo' => null
+        ]);
 
         return $this->success(null, 'Photo deleted');
     }
