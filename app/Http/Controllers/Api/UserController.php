@@ -58,8 +58,8 @@ class UserController extends BaseApiController
         $data['password'] = Hash::make($request->password);
 
         $photoPath = null;
-        if ($file = PublicPhoto::fromRequest($request)) {
-            $photoPath = PublicPhoto::store($file, 'uploads/users');
+        if ($request->hasFile('photo')) {
+            $photoPath = PublicPhoto::store($request->file('photo'), 'uploads/users');
         }
 
         $user = User::create($data);
@@ -89,7 +89,8 @@ class UserController extends BaseApiController
         }
 
         $photoPath = null;
-        if ($file = PublicPhoto::fromRequest($request)) {
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
 
             PublicPhoto::delete($user->photo);
 
