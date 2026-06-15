@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Support\PublicPhoto;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -68,6 +67,6 @@ class User extends Authenticatable
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return PublicPhoto::url($this->photo);
+        return $this->photo ? asset('storage/profile_photos/' . $this->photo) : null;
     }
 }

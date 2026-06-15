@@ -6,7 +6,6 @@ use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Models\User;
-use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -104,12 +103,10 @@ class AuthController extends BaseApiController
         $data = $request->validated();
         unset($data['photo'], $data['image'], $data['avatar'], $data['file']);
     
-        if ($file = PublicPhoto::fromRequest($request)) {
-
-            // حذف الصورة القديمة إن وجدت
-            PublicPhoto::delete($user->photo);
-
-            $data['photo'] = PublicPhoto::store($file, 'uploads/users');
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
+            $path = $file->store('public/profile_photos');
+            $data['photo'] = basename($path);
         }
     
         $user->update($data);
