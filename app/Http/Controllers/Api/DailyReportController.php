@@ -187,10 +187,10 @@ class DailyReportController extends BaseApiController
             'rig:id,name,code,location_id',
             'rig.location:id,name',
             'author:id,full_name',
-            'tools.drillingTool.toolType',
-            'reportEquipments.equipment',
-            'reportEmployees.shift.employees',
-            'materialLogs.rigMaterial.materialType',
+            'tools.drillingTool.toolType:id,name',          // ✓ موجودة في DailyReportTool
+            'reportEquipments.equipment:id,name,serial_number,status', // ✓ موجودة في DailyReportEquipment
+            'reportEmployees.shift.employees:id,full_name', // ✗ الخطأ هنا - Shift ليس فيها employees مباشرة
+            'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
 
         return $this->success(array_merge($report->toArray(), [

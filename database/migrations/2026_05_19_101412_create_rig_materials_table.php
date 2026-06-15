@@ -46,7 +46,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('report_id')->constrained('daily_reports')->cascadeOnDelete();
             $table->foreignId('equipment_id')->constrained('equipments')->restrictOnDelete();
-            $table->enum('status', ['Operational', 'Under_Maintenance', 'Out_of_Service'])->nullable();
+            $table->enum('status', ['Operational', 'Maintenance', 'Out_of_Service'])->nullable();
             $table->timestamps();
 
             $table->unique(['report_id', 'equipment_id']);

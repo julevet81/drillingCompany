@@ -16,7 +16,14 @@ class RigController extends BaseApiController
     /** GET /api/rigs */
     public function index(Request $request): JsonResponse
     {
-        $query = Rig::with(['location:id,name,state', 'manager:id,full_name'])
+        $query = Rig::with([
+            'location:id,name,state',
+            'manager:id,full_name',
+            'rigMaterials' => fn($q) => $q->whereHas(
+                'materialType',
+                fn($q2) => $q2->where('name', 'Diesel Fuel')
+            )->with('materialType:id,name,unit'),
+        ])
             ->withCount(['equipments', 'dailyReports']);
 
         if ($request->filled('status'))      $query->where('status', $request->status);
@@ -24,11 +31,26 @@ class RigController extends BaseApiController
 
         if ($request->filled('search')) {
             $s = $request->search;
-            $query->where(fn ($q) => $q->where('name', 'like', "%$s%")->orWhere('code', 'like', "%$s%"));
+            $query->where(fn($q) => $q->where('name', 'like', "%$s%")->orWhere('code', 'like', "%$s%"));
         }
 
-
         $rigs = $query->latest()->paginate($request->per_page ?? 15);
+
+        // Transform the collection to include fuel info
+        $rigs->getCollection()->transform(function (Rig $rig) {
+            $fuel = $rig->rigMaterials->first();
+
+            $rig->fuel = $fuel ? [
+                'quantity'          => (float) $fuel->quantity,
+                'capacity'          => (float) $fuel->capacity,
+                'filled_percentage' => $fuel->filled_percentage,
+                'is_low'            => $fuel->isLow(),
+            ] : null;
+
+            unset($rig->rigMaterials);
+
+            return $rig;
+        });
 
         return $this->paginated($rigs);
     }
@@ -157,12 +179,13 @@ class RigController extends BaseApiController
     {
         $request->validate([
             'status' => ['required', 'in:' . implode(',', Rig::STATUSES)],
+            'notes' => ['nullable', 'string'],
         ]);
 
-        $rig->update(['status' => $request->status]);
+        $rig->update(['status' => $request->status, 'notes' => $request->notes]);
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
-        return $this->success($rig->only(['id', 'status']), 'Status updated');
+        return $this->success($rig->only(['id', 'status', 'notes']), 'Status updated');
     }
 }

@@ -22,7 +22,7 @@ class UpdateEquipmentRequest extends FormRequest
             'image'          => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'avatar'         => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'file'           => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
-            'status'         => ['sometimes', Rule::in(['operational', 'maintenance', 'out_of_service'])],
+            'status'         => ['sometimes', Rule::in(['Operational', 'Maintenance', 'Out_of_Service'])],
         ];
     }
 }

@@ -21,7 +21,7 @@ class StoreEquipmentRequest extends FormRequest
             'avatar'         => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'file'           => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'hours_of_operation' => ['nullable', 'numeric'],
-            'status'         => ['sometimes', Rule::in(['operational', 'maintenance', 'out_of_service'])],
+            'status'         => ['sometimes', Rule::in(['Operational', 'Maintenance', 'Out_of_Service'])],
         ];
     }
 }
