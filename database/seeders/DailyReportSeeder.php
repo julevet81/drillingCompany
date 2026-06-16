@@ -233,6 +233,7 @@ class DailyReportSeeder extends Seeder
             $shift = Shift::create([
                 'report_id' => $report->id,
                 'periode'   => $periode,
+                'date'      => $report->report_date,
             ]);
 
             $syncData = [];
