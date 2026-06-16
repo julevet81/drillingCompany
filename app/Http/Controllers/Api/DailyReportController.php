@@ -60,8 +60,7 @@ class DailyReportController extends BaseApiController
                 ->unique('id')
                 ->values();
 
-            $report->getWorkersCountAttribute = $report->employees_list->count();
-            $report->getTotalBhaLengthAttribute = (float) $report->tools->sum('total_length');
+            $report->workers_count = $report->employees_list->count();
 
             return $report;
         });
@@ -122,14 +121,14 @@ class DailyReportController extends BaseApiController
 
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
-{
-    try {
-        $report = DB::transaction(function () use ($request) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
-            $data['created_by']     = $request->user()->id;
-            $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+    {
+        try {
+            $report = DB::transaction(function () use ($request) {
+                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+                $data['created_by']     = $request->user()->id;
+                $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
 
-            $report = DailyReport::create($data);
+                $report = DailyReport::create($data);
 
                 // BHA Tools
                 if ($request->filled('tools')) {
@@ -145,18 +144,17 @@ class DailyReportController extends BaseApiController
                     );
                 }
 
-            // Equipments
-            if ($request->filled('equipments')) {
-                foreach ($request->equipments as $e) {
-                    DailyReportEquipment::create([
-                        'report_id'    => $report->id,
-                        'equipment_id' => $e['equipment_id'],
-                        'status'       => $e['status'] ?? 'Operational',
-                    ]);
+                // Equipments
+                if ($request->filled('equipments')) {
+                    foreach ($request->equipments as $e) {
+                        DailyReportEquipment::create([
+                            'report_id'    => $report->id,
+                            'equipment_id' => $e['equipment_id'],
+                            'status'       => $e['status'] ?? 'Operational',
+                        ]);
+                    }
                 }
-            }
 
-<<<<<<< HEAD
                 // Shifts + موظفوهم — يُنشأ كل shift مع تقريره مباشرة
                 if ($request->filled('shifts')) {
                     foreach ($request->shifts as $shiftData) {
@@ -164,35 +162,6 @@ class DailyReportController extends BaseApiController
                             'report_id' => $report->id,
                             'periode'   => $shiftData['periode'],
                         ]);
-=======
-            // ─── Shifts / Employees ───────────────────────────────────────────
-            // إذا أرسل المستخدم shifts يدوياً نستخدمها، وإلا نجلب تلقائياً
-            // من جدول shifts بناءً على rig_id وتاريخ التقرير
-            if ($request->filled('shifts')) {
-                DailyReportEmployee::insert(collect($request->shifts)->map(fn ($s) => [
-                    'report_id'  => $report->id,
-                    'shift_id'   => $s['shift_id'],
-                    'present'    => $s['present'] ?? true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])->toArray());
-            } else {
-                // جلب كل الورديات المرتبطة بالـ rig وتاريخ التقرير تلقائياً
-                $shifts = Shift::forRig($data['rig_id'])
-                    ->forDate($data['report_date'])
-                    ->pluck('id');
-
-                if ($shifts->isNotEmpty()) {
-                    DailyReportEmployee::insert($shifts->map(fn ($shiftId) => [
-                        'report_id'  => $report->id,
-                        'shift_id'   => $shiftId,
-                        'present'    => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ])->toArray());
-                }
-            }
->>>>>>> d9b73eb8f725500cefb7d29000dcc602528a9e5a
 
                         if (!empty($shiftData['employees'])) {
                             $shift->employees()->sync(
@@ -205,20 +174,6 @@ class DailyReportController extends BaseApiController
                             );
                         }
                     }
-<<<<<<< HEAD
-=======
-
-                    $rigMaterial->update(['quantity' => $newQty]);
-
-                    MaterialLog::create([
-                        'report_id'       => $report->id,
-                        'rig_material_id' => $rigMaterial->id,
-                        'log_date'        => $report->report_date,
-                        'consumed'        => $m['consumed'] ?? 0,
-                        'added'           => $m['added'] ?? 0,
-                        'remaining'       => $newQty,
-                    ]);
->>>>>>> d9b73eb8f725500cefb7d29000dcc602528a9e5a
                 }
 
                 // Material logs
@@ -251,7 +206,6 @@ class DailyReportController extends BaseApiController
 
                 $report->rig->update(['current_depth' => $data['depth_end']]);
 
-<<<<<<< HEAD
                 return $report;
             });
         } catch (QueryException $e) {
@@ -270,27 +224,7 @@ class DailyReportController extends BaseApiController
             ]),
             'Daily report created'
         );
-=======
-            return $report;
-        });
-    } catch (QueryException $e) {
-        if (str_contains($e->getMessage(), 'daily_reports.rig_id, daily_reports.report_date')) {
-            return $this->error('A report for this rig and date already exists.', 422);
-        }
-        throw $e;
->>>>>>> d9b73eb8f725500cefb7d29000dcc602528a9e5a
     }
-
-    return $this->created(
-        $report->load([
-            'tools.drillingTool.toolType',
-            'reportEquipments.equipment',
-            'reportEmployees.shift.employees.position',
-            'rig:id,name,code',
-        ]),
-        'Daily report created'
-    );
-}
 
     /** GET /api/daily-reports/{report} */
     public function show(DailyReport $daily_report): JsonResponse
