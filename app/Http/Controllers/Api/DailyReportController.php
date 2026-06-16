@@ -118,14 +118,14 @@ class DailyReportController extends BaseApiController
     }
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
-    {
-        try {
-            $report = DB::transaction(function () use ($request) {
-                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
-                $data['created_by']     = $request->user()->id;
-                $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+{
+    try {
+        $report = DB::transaction(function () use ($request) {
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+            $data['created_by']     = $request->user()->id;
+            $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
 
-                $report = DailyReport::create($data);
+            $report = DailyReport::create($data);
 
             // BHA Tools
             if ($request->filled('tools')) {
@@ -139,18 +139,20 @@ class DailyReportController extends BaseApiController
                 ])->toArray());
             }
 
-                // Equipments
-                if ($request->filled('equipments')) {
-                    foreach ($request->equipments as $e) {
-                        DailyReportEquipment::create([
-                            'report_id'    => $report->id,
-                            'equipment_id' => $e['equipment_id'],
-                            'status'       => $e['status'] ?? 'Operational',
-                        ]);
-                    }
+            // Equipments
+            if ($request->filled('equipments')) {
+                foreach ($request->equipments as $e) {
+                    DailyReportEquipment::create([
+                        'report_id'    => $report->id,
+                        'equipment_id' => $e['equipment_id'],
+                        'status'       => $e['status'] ?? 'Operational',
+                    ]);
                 }
+            }
 
-            // Shifts / attendance
+            // ─── Shifts / Employees ───────────────────────────────────────────
+            // إذا أرسل المستخدم shifts يدوياً نستخدمها، وإلا نجلب تلقائياً
+            // من جدول shifts بناءً على rig_id وتاريخ التقرير
             if ($request->filled('shifts')) {
                 DailyReportEmployee::insert(collect($request->shifts)->map(fn ($s) => [
                     'report_id'  => $report->id,
@@ -159,6 +161,21 @@ class DailyReportController extends BaseApiController
                     'created_at' => now(),
                     'updated_at' => now(),
                 ])->toArray());
+            } else {
+                // جلب كل الورديات المرتبطة بالـ rig وتاريخ التقرير تلقائياً
+                $shifts = Shift::forRig($data['rig_id'])
+                    ->forDate($data['report_date'])
+                    ->pluck('id');
+
+                if ($shifts->isNotEmpty()) {
+                    DailyReportEmployee::insert($shifts->map(fn ($shiftId) => [
+                        'report_id'  => $report->id,
+                        'shift_id'   => $shiftId,
+                        'present'    => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ])->toArray());
+                }
             }
 
             // Material logs — update rig stock
@@ -179,12 +196,12 @@ class DailyReportController extends BaseApiController
                     $rigMaterial->update(['quantity' => $newQty]);
 
                     MaterialLog::create([
-                        'report_id'      => $report->id,
+                        'report_id'       => $report->id,
                         'rig_material_id' => $rigMaterial->id,
-                        'log_date'       => $report->report_date,
-                        'consumed'       => $m['consumed'] ?? 0,
-                        'added'          => $m['added'] ?? 0,
-                        'remaining'      => $newQty,
+                        'log_date'        => $report->report_date,
+                        'consumed'        => $m['consumed'] ?? 0,
+                        'added'           => $m['added'] ?? 0,
+                        'remaining'       => $newQty,
                     ]);
                 }
             }
@@ -192,20 +209,25 @@ class DailyReportController extends BaseApiController
             // Update rig current depth
             $report->rig->update(['current_depth' => $data['depth_end']]);
 
-                return $report;
-            });
-        } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'daily_reports.rig_id, daily_reports.report_date')) {
-                return $this->error('A report for this rig and date already exists.', 422);
-            }
-            throw $e;
+            return $report;
+        });
+    } catch (QueryException $e) {
+        if (str_contains($e->getMessage(), 'daily_reports.rig_id, daily_reports.report_date')) {
+            return $this->error('A report for this rig and date already exists.', 422);
         }
-
-        return $this->created(
-            $report->load(['tools.drillingTool.toolType', 'reportEquipments.equipment', 'rig:id,name,code']),
-            'Daily report created'
-        );
+        throw $e;
     }
+
+    return $this->created(
+        $report->load([
+            'tools.drillingTool.toolType',
+            'reportEquipments.equipment',
+            'reportEmployees.shift.employees.position',
+            'rig:id,name,code',
+        ]),
+        'Daily report created'
+    );
+}
 
     /** GET /api/daily-reports/{report} */
     public function show(DailyReport $daily_report): JsonResponse
