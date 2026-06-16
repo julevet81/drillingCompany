@@ -20,22 +20,49 @@ class DailyReportController extends BaseApiController
     /** GET /api/daily-reports */
     public function index(Request $request): JsonResponse
     {
-        $query = DailyReport::with(['rig:id,name,code', 'author:id,full_name'])
+        $query = DailyReport::with([
+            'rig:id,name,code',
+            'author:id,full_name',
+            'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
+            'reportEmployees.shift.employees:id,full_name,photo,position_id',
+            'reportEmployees.shift.employees.position:id,name',
+        ])
             ->withCount(['tools', 'reportEquipments', 'reportEmployees', 'materialLogs']);
 
-        //if ($request->filled('rig_id'))  $query->where('rig_id', $request->rig_id);
-        if ($request->filled('date'))    $query->whereDate('report_date', $request->date);
-        if ($request->filled('status'))  $query->where('status', $request->status);
+        if ($request->filled('date'))   $query->whereDate('report_date', $request->date);
+        if ($request->filled('status')) $query->where('status', $request->status);
 
         if ($request->filled('from') && $request->filled('to')) {
             $query->whereBetween('report_date', [$request->from, $request->to]);
         }
 
-        // if ($request->user()->isManager()) {
-        //     $query->whereHas('rig', fn ($q) => $q->where('manager_id', $request->user()->id));
-        // }
-
         $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
+
+        // إضافة photo_url لكل equipment وكل employee
+        $reports->getCollection()->transform(function (DailyReport $report) {
+            $report->equipments_list = $report->reportEquipments->map(fn($re) => [
+                'id'            => $re->equipment?->id,
+                'name'          => $re->equipment?->name,
+                'marque'        => $re->equipment?->marque,
+                'serial_number' => $re->equipment?->serial_number,
+                'status'        => $re->status,
+                'photo_url'     => $re->equipment?->photo ? asset($re->equipment->photo) : null,
+            ]);
+
+            $report->employees_list = $report->reportEmployees
+                ->flatMap(fn($re) => $re->shift?->employees->map(fn($emp) => [
+                    'id'        => $emp->id,
+                    'name'      => $emp->full_name,
+                    'position'  => $emp->position?->name,
+                    'photo_url' => $emp->photo ? asset($emp->photo) : null,
+                    'present'   => $re->present,
+                    'shift'     => $re->shift->periode,
+                ]) ?? collect())
+                ->unique('id')
+                ->values();
+
+            return $report;
+        });
 
         return $this->paginated($reports);
     }
