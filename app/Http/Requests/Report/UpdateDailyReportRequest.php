@@ -6,14 +6,16 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDailyReportRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     public function rules(): array
     {
         return [
             'depth_start'      => ['sometimes', 'numeric', 'min:0'],
             'depth_end'        => ['sometimes', 'numeric', 'gte:depth_start'],
-            'workers_count'    => ['nullable', 'integer', 'min:0'],
             'fuel_consumption' => ['nullable', 'numeric', 'min:0'],
             'incidents'        => ['nullable', 'integer', 'min:0'],
             'npt_hours'        => ['nullable', 'numeric', 'min:0'],
@@ -28,6 +30,14 @@ class UpdateDailyReportRequest extends FormRequest
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
             'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
+
+            // تعديل موظفي الـ shifts الموجودة
+            'shifts'                          => ['nullable', 'array', 'max:2'],
+            'shifts.*.periode'                => ['required', 'in:day,night'],
+            'shifts.*.employees'              => ['nullable', 'array'],
+            'shifts.*.employees.*.employee_id' => ['required', 'exists:employees,id'],
+            'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
+            'shifts.*.employees.*.status'     => ['nullable', 'in:onsite,onBase,onLeave'],
         ];
     }
 }

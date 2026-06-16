@@ -8,13 +8,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Shift extends Model
 {
-    protected $fillable = ['date', 'periode', 'rig_id'];
+    protected $fillable = ['report_id', 'periode'];
 
     protected $casts = ['date' => 'date'];
 
-    public function rig(): BelongsTo
+    public function report(): BelongsTo
     {
-        return $this->belongsTo(Rig::class);
+        return $this->belongsTo(DailyReport::class, 'report_id');
+    }
+
+    // الـ rig نصل إليه عبر التقرير
+    public function getRigAttribute()
+    {
+        return $this->report?->rig;
     }
 
     public function employees(): BelongsToMany
@@ -25,11 +31,11 @@ class Shift extends Model
 
     public function scopeForDate($query, $date)
     {
-        return $query->whereDate('date', $date);
+        return $query->whereHas('report', fn($q) => $q->whereDate('report_date', $date));
     }
 
     public function scopeForRig($query, int $rigId)
     {
-        return $query->where('rig_id', $rigId);
+        return $query->whereHas('report', fn($q) => $q->where('rig_id', $rigId));
     }
 }

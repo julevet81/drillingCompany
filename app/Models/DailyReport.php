@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
-use App\Models\DailyReportTool;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class DailyReport extends Model
 {
@@ -20,7 +19,6 @@ class DailyReport extends Model
         'depth_start',
         'depth_end',
         'daily_progress',
-        'workers_count',
         'fuel_consumption',
         'incidents',
         'npt_hours',
@@ -37,12 +35,11 @@ class DailyReport extends Model
         'fuel_consumption' => 'decimal:2',
         'npt_hours'        => 'decimal:2',
         'incidents'        => 'integer',
-        'workers_count'    => 'integer',
     ];
 
     public const STATUSES = ['draft', 'submitted', 'approved'];
 
-    // ─── Relationships ────────────────────────────────────────────────────────
+    // ─── Relationships ────────────────────────────────────────────────
 
     public function rig(): BelongsTo
     {
@@ -64,9 +61,9 @@ class DailyReport extends Model
         return $this->hasMany(DailyReportEquipment::class, 'report_id');
     }
 
-    public function reportEmployees(): HasMany
+    public function shifts(): HasMany
     {
-        return $this->hasMany(DailyReportEmployee::class, 'report_id');
+        return $this->hasMany(Shift::class, 'report_id');
     }
 
     public function materialLogs(): HasMany
@@ -74,7 +71,7 @@ class DailyReport extends Model
         return $this->hasMany(MaterialLog::class, 'report_id');
     }
 
-    // ─── Scopes ───────────────────────────────────────────────────────────────
+    // ─── Scopes ───────────────────────────────────────────────────────
 
     public function scopeForRig($query, int $rigId)
     {
@@ -91,10 +88,16 @@ class DailyReport extends Model
         return $query->where('status', 'submitted');
     }
 
-    // ─── Computed ─────────────────────────────────────────────────────────────
+    // ─── Computed ─────────────────────────────────────────────────────
 
     public function getTotalBhaLengthAttribute(): float
     {
         return (float) $this->tools->sum('total_length');
+    }
+
+    // عدد الموظفين يُحسب من الـ shifts المرتبطة
+    public function getWorkersCountAttribute(): int
+    {
+        return $this->shifts->sum(fn($shift) => $shift->employees->count());
     }
 }

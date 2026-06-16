@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\DailyReport;
-use App\Models\EmployeeShift;
 use App\Models\Equipment;
 use App\Models\Rig;
 use App\Models\RigMaterial;
+use App\Models\Shift;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends BaseApiController
 {
@@ -20,7 +21,7 @@ class DashboardController extends BaseApiController
             $lastMonth = now()->subMonth();
 
             $totalRigs  = Rig::count();
-            $activeRigs = Rig::where('status', 'active')->count();
+            $activeRigs = Rig::where('status', 'drilling')->count();
 
             $completedThisMonth = Rig::where('status', 'completed')
                 ->whereMonth('updated_at', $now->month)->whereYear('updated_at', $now->year)->count();
@@ -28,9 +29,7 @@ class DashboardController extends BaseApiController
             $completedLastMonth = Rig::where('status', 'completed')
                 ->whereMonth('updated_at', $lastMonth->month)->whereYear('updated_at', $lastMonth->year)->count();
 
-            $totalDepth     = Rig::sum('current_depth');
-            $lastMonthDepth = DailyReport::where('report_date', '<', $lastMonth)->sum('daily_progress');
-
+            $totalDepth  = Rig::sum('current_depth');
             $avgProgress = DailyReport::whereDate('report_date', today())->avg('daily_progress') ?? 0;
 
             $machinesInUse  = Equipment::whereNotNull('current_rig_id')->count();
@@ -42,7 +41,7 @@ class DashboardController extends BaseApiController
                 'active_rigs'            => $activeRigs,
                 'completed_month'        => $completedThisMonth,
                 'completed_delta'        => $completedThisMonth - $completedLastMonth,
-                'stand_by'               => Rig::where('status', 'paused')->count(),
+                'stand_by'               => Rig::where('status', 'stopped')->count(),
                 'total_depth_m'          => (float) $totalDepth,
                 'avg_daily_progress'     => round($avgProgress, 2),
                 'machines_in_use'        => $machinesInUse,
@@ -64,7 +63,7 @@ class DashboardController extends BaseApiController
                 ->groupBy('year', 'month')
                 ->orderBy('month')
                 ->get()
-                ->map(fn ($r) => [
+                ->map(fn($r) => [
                     'month' => \Carbon\Carbon::createFromDate($r->year, $r->month, 1)->format('M'),
                     'depth' => round($r->total, 2),
                 ]);
@@ -82,7 +81,7 @@ class DashboardController extends BaseApiController
                 ->groupBy('report_date')
                 ->orderBy('report_date')
                 ->get()
-                ->map(fn ($r) => [
+                ->map(fn($r) => [
                     'day'   => \Carbon\Carbon::parse($r->report_date)->format('D'),
                     'depth' => round($r->total, 2),
                 ]);
@@ -106,16 +105,16 @@ class DashboardController extends BaseApiController
             ->where('status', 'drilling')
             ->select(['id', 'name', 'code', 'location_id', 'status', 'current_depth', 'target_depth', 'drilling_phase'])
             ->get()
-            ->map(fn ($rig) => [
-                'id'             => $rig->id,
-                'name'           => $rig->name,
-                'code'           => $rig->code,
-                'location'       => $rig->location?->name,
-                'status'         => $rig->status,
-                'drilling_phase' => $rig->drilling_phase,
-                'current_depth'  => $rig->current_depth,
-                'target_depth'   => $rig->target_depth,
-                'progress'       => $rig->progress_percentage,
+            ->map(fn($rig) => [
+                'id'              => $rig->id,
+                'name'            => $rig->name,
+                'code'            => $rig->code,
+                'location'        => $rig->location?->name,
+                'status'          => $rig->status,
+                'drilling_phase'  => $rig->drilling_phase,
+                'current_depth'   => $rig->current_depth,
+                'target_depth'    => $rig->target_depth,
+                'progress'        => $rig->progress_percentage,
             ]);
 
         return $this->success($rigs);
@@ -126,9 +125,8 @@ class DashboardController extends BaseApiController
     {
         $alerts = [];
 
-        // Low fuel (Diesel) alerts
         $lowFuel = RigMaterial::with(['rig:id,name,code', 'materialType:id,name,unit'])
-            ->whereHas('materialType', fn ($q) => $q->where('name', 'Diesel Fuel'))
+            ->whereHas('materialType', fn($q) => $q->where('name', 'Diesel Fuel'))
             ->whereRaw('(quantity / NULLIF(capacity,0)) * 100 < 20')
             ->get();
 
@@ -141,12 +139,11 @@ class DashboardController extends BaseApiController
             ];
         }
 
-        // Maintenance rigs
-        foreach (Rig::where('status', 'maintenance')->get() as $rig) {
+        foreach (Rig::where('status', 'stopped')->get() as $rig) {
             $alerts[] = [
                 'type'    => 'info',
                 'title'   => $rig->code,
-                'message' => 'Scheduled maintenance due',
+                'message' => 'Rig is stopped',
                 'time'    => $rig->updated_at->diffForHumans(),
             ];
         }
@@ -157,13 +154,21 @@ class DashboardController extends BaseApiController
     /** GET /api/dashboard/system-status */
     public function systemStatus(): JsonResponse
     {
-        $status = Cache::remember('dashboard:system-status', 60, fn () => [
-            'active_rigs'      => Rig::where('status', 'drilling')->count(),
-            'running_machines' => Equipment::whereNotNull('current_rig_id')->count(),
-            'field_workers'    => EmployeeShift::where('status', 'onsite')
-                ->whereHas('shift', fn ($q) => $q->whereDate('date', today()))
-                ->count(),
-        ]);
+        $status = Cache::remember('dashboard:system-status', 60, function () {
+            // عدد الموظفين onsite عبر shift_employees → shifts → reports (اليوم)
+            $fieldWorkers = DB::table('employee_shifts')
+                ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                ->where('employee_shifts.status', 'onsite')
+                ->whereDate('daily_reports.report_date', today())
+                ->count();
+
+            return [
+                'active_rigs'      => Rig::where('status', 'drilling')->count(),
+                'running_machines' => Equipment::whereNotNull('current_rig_id')->count(),
+                'field_workers'    => $fieldWorkers,
+            ];
+        });
 
         return $this->success($status);
     }

@@ -7,9 +7,9 @@ use App\Http\Requests\Report\UpdateDailyReportRequest;
 use App\Models\DailyReport;
 use App\Models\DailyReportTool;
 use App\Models\DailyReportEquipment;
-use App\Models\DailyReportEmployee;
 use App\Models\MaterialLog;
 use App\Models\RigMaterial;
+use App\Models\Shift;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,10 +24,9 @@ class DailyReportController extends BaseApiController
             'rig:id,name,code',
             'author:id,full_name',
             'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
-            'reportEmployees.shift.employees:id,full_name,photo,position_id',
-            'reportEmployees.shift.employees.position:id,name',
-        ])
-            ->withCount(['tools', 'reportEquipments', 'reportEmployees', 'materialLogs']);
+            'shifts.employees:id,full_name,photo,position_id',
+            'shifts.employees.position:id,name',
+        ])->withCount(['tools', 'reportEquipments', 'shifts']);
 
         if ($request->filled('date'))   $query->whereDate('report_date', $request->date);
         if ($request->filled('status')) $query->where('status', $request->status);
@@ -38,7 +37,6 @@ class DailyReportController extends BaseApiController
 
         $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
 
-        // إضافة photo_url لكل equipment وكل employee
         $reports->getCollection()->transform(function (DailyReport $report) {
             $report->equipments_list = $report->reportEquipments->map(fn($re) => [
                 'id'            => $re->equipment?->id,
@@ -49,17 +47,21 @@ class DailyReportController extends BaseApiController
                 'photo_url'     => $re->equipment?->photo ? asset($re->equipment->photo) : null,
             ]);
 
-            $report->employees_list = $report->reportEmployees
-                ->flatMap(fn($re) => $re->shift?->employees->map(fn($emp) => [
+            $report->employees_list = $report->shifts
+                ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
                     'id'        => $emp->id,
                     'name'      => $emp->full_name,
                     'position'  => $emp->position?->name,
                     'photo_url' => $emp->photo ? asset($emp->photo) : null,
-                    'present'   => $re->present,
-                    'shift'     => $re->shift->periode,
-                ]) ?? collect())
+                    'function'  => $emp->pivot->function ?? null,
+                    'status'    => $emp->pivot->status ?? null,
+                    'shift'     => $shift->periode,
+                ]))
                 ->unique('id')
                 ->values();
+
+            $report->getWorkersCountAttribute = $report->employees_list->count();
+            $report->getTotalBhaLengthAttribute = (float) $report->tools->sum('total_length');
 
             return $report;
         });
@@ -71,28 +73,29 @@ class DailyReportController extends BaseApiController
     public function summary(Request $request): JsonResponse
     {
         try {
-            // Validate date format
             $date = $request->filled('date')
                 ? \Carbon\Carbon::parse($request->date)->toDateString()
                 : today()->toDateString();
 
-            // Single query for all report aggregates
             $data = DailyReport::whereDate('report_date', $date)
                 ->selectRaw('
-                COUNT(*)                as total_reports,
-                COALESCE(AVG(daily_progress), 0)  as avg_progress,
-                COALESCE(SUM(workers_count), 0)   as total_personnel,
-                COALESCE(SUM(fuel_consumption), 0) as total_fuel
-            ')
+                    COUNT(*)                        as total_reports,
+                    COALESCE(AVG(daily_progress),0) as avg_progress,
+                    COALESCE(SUM(fuel_consumption),0) as total_fuel
+                ')
                 ->first();
 
-            // BHA average length for that date
+            // عدد الموظفين الكلي عبر الـ shifts
+            $totalPersonnel = Shift::whereHas(
+                'report',
+                fn($q) => $q->whereDate('report_date', $date)
+            )->withCount('employees')->get()->sum('employees_count');
+
             $avgBha = DailyReportTool::whereHas(
                 'report',
                 fn($q) => $q->whereDate('report_date', $date)
             )->avg('total_length') ?? 0;
 
-            // Total materials used for that date
             $totalMaterials = DailyReportTool::whereHas(
                 'report',
                 fn($q) => $q->whereDate('report_date', $date)
@@ -100,11 +103,11 @@ class DailyReportController extends BaseApiController
 
             return $this->success([
                 'date'             => $date,
-                'total_reports'    => (int) ($data->total_reports   ?? 0),
-                'avg_progress_m'   => round($data->avg_progress     ?? 0, 2),
-                'total_personnel'  => (int) ($data->total_personnel ?? 0),
-                'total_fuel_l'     => round($data->total_fuel       ?? 0, 2),
-                'avg_bha_length_m' => round($avgBha,         2),
+                'total_reports'    => (int) ($data->total_reports ?? 0),
+                'avg_progress_m'   => round($data->avg_progress ?? 0, 2),
+                'total_personnel'  => (int) $totalPersonnel,
+                'total_fuel_l'     => round($data->total_fuel ?? 0, 2),
+                'avg_bha_length_m' => round($avgBha, 2),
                 'total_materials'  => (int) $totalMaterials,
             ]);
         } catch (\Carbon\Exceptions\InvalidFormatException $e) {
@@ -116,6 +119,7 @@ class DailyReportController extends BaseApiController
             );
         }
     }
+
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
     {
@@ -127,17 +131,19 @@ class DailyReportController extends BaseApiController
 
                 $report = DailyReport::create($data);
 
-            // BHA Tools
-            if ($request->filled('tools')) {
-                DailyReportTool::insert(collect($request->tools)->map(fn ($t) => [
-                    'report_id'        => $report->id,
-                    'drilling_tool_id' => $t['drilling_tool_id'],
-                    'quantity_used'    => $t['quantity_used'] ?? 0,
-                    'total_length'     => $t['total_length'] ?? 0,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
-                ])->toArray());
-            }
+                // BHA Tools
+                if ($request->filled('tools')) {
+                    DailyReportTool::insert(
+                        collect($request->tools)->map(fn($t) => [
+                            'report_id'        => $report->id,
+                            'drilling_tool_id' => $t['drilling_tool_id'],
+                            'quantity_used'    => $t['quantity_used'] ?? 0,
+                            'total_length'     => $t['total_length'] ?? 0,
+                            'created_at'       => now(),
+                            'updated_at'       => now(),
+                        ])->toArray()
+                    );
+                }
 
                 // Equipments
                 if ($request->filled('equipments')) {
@@ -150,59 +156,73 @@ class DailyReportController extends BaseApiController
                     }
                 }
 
-            // Shifts / attendance
-            if ($request->filled('shifts')) {
-                DailyReportEmployee::insert(collect($request->shifts)->map(fn ($s) => [
-                    'report_id'  => $report->id,
-                    'shift_id'   => $s['shift_id'],
-                    'present'    => $s['present'] ?? true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])->toArray());
-            }
+                // Shifts + موظفوهم — يُنشأ كل shift مع تقريره مباشرة
+                if ($request->filled('shifts')) {
+                    foreach ($request->shifts as $shiftData) {
+                        $shift = Shift::create([
+                            'report_id' => $report->id,
+                            'periode'   => $shiftData['periode'],
+                        ]);
 
-            // Material logs — update rig stock
-            if ($request->filled('materials')) {
-                foreach ($request->materials as $m) {
-                    $rigMaterial = RigMaterial::lockForUpdate()->findOrFail($m['rig_material_id']);
-
-                    $newQty = $rigMaterial->quantity
-                        - ($m['consumed'] ?? 0)
-                        + ($m['added'] ?? 0);
-
-                    if ($newQty < 0) {
-                        throw new \InvalidArgumentException(
-                            "Material '{$rigMaterial->materialType?->name}' stock insufficient."
-                        );
+                        if (!empty($shiftData['employees'])) {
+                            $shift->employees()->sync(
+                                collect($shiftData['employees'])->mapWithKeys(fn($e) => [
+                                    $e['employee_id'] => [
+                                        'function' => $e['function'] ?? null,
+                                        'status'   => $e['status'] ?? 'onsite',
+                                    ],
+                                ])->toArray()
+                            );
+                        }
                     }
-
-                    $rigMaterial->update(['quantity' => $newQty]);
-
-                    MaterialLog::create([
-                        'report_id'      => $report->id,
-                        'rig_material_id' => $rigMaterial->id,
-                        'log_date'       => $report->report_date,
-                        'consumed'       => $m['consumed'] ?? 0,
-                        'added'          => $m['added'] ?? 0,
-                        'remaining'      => $newQty,
-                    ]);
                 }
-            }
 
-            // Update rig current depth
-            $report->rig->update(['current_depth' => $data['depth_end']]);
+                // Material logs
+                if ($request->filled('materials')) {
+                    foreach ($request->materials as $m) {
+                        $rigMaterial = RigMaterial::lockForUpdate()->findOrFail($m['rig_material_id']);
+
+                        $newQty = $rigMaterial->quantity
+                            - ($m['consumed'] ?? 0)
+                            + ($m['added'] ?? 0);
+
+                        if ($newQty < 0) {
+                            throw new \InvalidArgumentException(
+                                "Material '{$rigMaterial->materialType?->name}' stock insufficient."
+                            );
+                        }
+
+                        $rigMaterial->update(['quantity' => $newQty]);
+
+                        MaterialLog::create([
+                            'report_id'       => $report->id,
+                            'rig_material_id' => $rigMaterial->id,
+                            'log_date'        => $report->report_date,
+                            'consumed'        => $m['consumed'] ?? 0,
+                            'added'           => $m['added'] ?? 0,
+                            'remaining'       => $newQty,
+                        ]);
+                    }
+                }
+
+                $report->rig->update(['current_depth' => $data['depth_end']]);
 
                 return $report;
             });
         } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'daily_reports.rig_id, daily_reports.report_date')) {
+            if (str_contains($e->getMessage(), 'daily_reports_rig_id_report_date_unique')) {
                 return $this->error('A report for this rig and date already exists.', 422);
             }
             throw $e;
         }
 
         return $this->created(
-            $report->load(['tools.drillingTool.toolType', 'reportEquipments.equipment', 'rig:id,name,code']),
+            $report->load([
+                'tools.drillingTool.toolType',
+                'reportEquipments.equipment',
+                'shifts.employees',
+                'rig:id,name,code',
+            ]),
             'Daily report created'
         );
     }
@@ -216,27 +236,26 @@ class DailyReportController extends BaseApiController
             'author:id,full_name',
             'tools.drillingTool.toolType:id,name',
             'reportEquipments.equipment:id,name,serial_number,status',
-            'reportEmployees.shift.employees:id,full_name,position_id',
-            'reportEmployees.shift.employees.position:id,name',
+            'shifts.employees:id,full_name,position_id',
+            'shifts.employees.position:id,name',
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
 
-        // بناء قائمة الموظفين من الـ shifts
-        $employees = $daily_report->reportEmployees
-            ->flatMap(fn($re) => $re->shift?->employees->map(fn($emp) => [
+        $employees = $daily_report->shifts
+            ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
                 'id'       => $emp->id,
                 'name'     => $emp->full_name,
                 'position' => $emp->position?->name,
                 'function' => $emp->pivot->function ?? null,
                 'status'   => $emp->pivot->status ?? null,
-                'present'  => $re->present,
-                'shift'    => $re->shift->periode,
-            ]) ?? collect())
+                'shift'    => $shift->periode,
+            ]))
             ->unique('id')
             ->values();
 
         return $this->success(array_merge($daily_report->toArray(), [
             'total_bha_length' => $daily_report->total_bha_length,
+            'workers_count'    => $employees->count(),
             'employees'        => $employees,
         ]));
     }
@@ -259,18 +278,43 @@ class DailyReportController extends BaseApiController
 
             if ($request->filled('tools')) {
                 $report->tools()->delete();
-                DailyReportTool::insert(collect($request->tools)->map(fn ($t) => [
-                    'report_id'        => $report->id,
-                    'drilling_tool_id' => $t['drilling_tool_id'],
-                    'quantity_used'    => $t['quantity_used'] ?? 0,
-                    'total_length'     => $t['total_length'] ?? 0,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
-                ])->toArray());
+                DailyReportTool::insert(
+                    collect($request->tools)->map(fn($t) => [
+                        'report_id'        => $report->id,
+                        'drilling_tool_id' => $t['drilling_tool_id'],
+                        'quantity_used'    => $t['quantity_used'] ?? 0,
+                        'total_length'     => $t['total_length'] ?? 0,
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ])->toArray()
+                );
+            }
+
+            // تحديث موظفي الـ shifts — sync بدون حذف الـ shift نفسه
+            if ($request->filled('shifts')) {
+                foreach ($request->shifts as $shiftData) {
+                    $shift = $report->shifts()->firstOrCreate([
+                        'periode' => $shiftData['periode'],
+                    ]);
+
+                    if (!empty($shiftData['employees'])) {
+                        $shift->employees()->sync(
+                            collect($shiftData['employees'])->mapWithKeys(fn($e) => [
+                                $e['employee_id'] => [
+                                    'function' => $e['function'] ?? null,
+                                    'status'   => $e['status'] ?? 'onsite',
+                                ],
+                            ])->toArray()
+                        );
+                    }
+                }
             }
         });
 
-        return $this->success($report->fresh(['tools', 'reportEquipments']), 'Report updated');
+        return $this->success(
+            $report->fresh(['tools', 'reportEquipments', 'shifts.employees']),
+            'Report updated'
+        );
     }
 
     /** DELETE /api/daily-reports/{report} */
@@ -279,7 +323,7 @@ class DailyReportController extends BaseApiController
         if ($report->status === 'approved') {
             return $this->error('Cannot delete an approved report', 422);
         }
-        $report->delete($report->id);
+        $report->delete();
         return $this->success(null, 'Report deleted');
     }
 

@@ -7,7 +7,10 @@ use Illuminate\Validation\Rule;
 
 class StoreDailyReportRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     public function rules(): array
     {
@@ -17,12 +20,11 @@ class StoreDailyReportRequest extends FormRequest
                 'required',
                 'date',
                 Rule::unique('daily_reports')->where(
-                    fn ($q) => $q->where('rig_id', $this->rig_id)
+                    fn($q) => $q->where('rig_id', $this->rig_id)
                 ),
             ],
             'depth_start'      => ['required', 'numeric', 'min:0'],
             'depth_end'        => ['required', 'numeric', 'gte:depth_start'],
-            'workers_count'    => ['nullable', 'integer', 'min:0'],
             'fuel_consumption' => ['nullable', 'numeric', 'min:0'],
             'incidents'        => ['nullable', 'integer', 'min:0'],
             'npt_hours'        => ['nullable', 'numeric', 'min:0'],
@@ -35,29 +37,34 @@ class StoreDailyReportRequest extends FormRequest
             'tools.*.quantity_used'    => ['required', 'integer', 'min:0'],
             'tools.*.total_length'     => ['required', 'numeric', 'min:0'],
 
-            // Equipment status
+            // Equipment
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
             'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
 
-            // Employee attendance
-            'shifts'               => ['nullable', 'array'],
-            'shifts.*.shift_id'    => ['required', 'exists:shifts,id'],
-            'shifts.*.present'     => ['boolean'],
+            // Shifts — يُنشأ مع التقرير مباشرة
+            'shifts'                          => ['nullable', 'array', 'max:2'],
+            'shifts.*.periode'                => ['required', 'in:day,night'],
+            'shifts.*.employees'              => ['nullable', 'array'],
+            'shifts.*.employees.*.employee_id' => ['required', 'exists:employees,id'],
+            'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
+            'shifts.*.employees.*.status'     => ['nullable', 'in:onsite,onBase,onLeave'],
 
-            // Materials consumed / added
-            'materials'                       => ['nullable', 'array'],
-            'materials.*.rig_material_id'     => ['required', 'exists:rig_materials,id'],
-            'materials.*.consumed'            => ['nullable', 'numeric', 'min:0'],
-            'materials.*.added'               => ['nullable', 'numeric', 'min:0'],
+            // Materials
+            'materials'                   => ['nullable', 'array'],
+            'materials.*.rig_material_id' => ['required', 'exists:rig_materials,id'],
+            'materials.*.consumed'        => ['nullable', 'numeric', 'min:0'],
+            'materials.*.added'           => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'report_date.unique' => 'A report for this rig and date already exists.',
-            'depth_end.gte'      => 'End depth must be ≥ start depth.',
+            'report_date.unique'      => 'A report for this rig and date already exists.',
+            'depth_end.gte'           => 'End depth must be ≥ start depth.',
+            'shifts.max'              => 'A report can have at most 2 shifts (day and night).',
+            'shifts.*.periode.in'     => 'Shift periode must be day or night.',
         ];
     }
 }
