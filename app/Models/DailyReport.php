@@ -38,8 +38,6 @@ class DailyReport extends Model
         'incidents'        => 'integer',
     ];
 
-    protected $appends = ['previous_report'];
-
     public const STATUSES = ['draft', 'submitted', 'approved'];
 
     // ─── Relationships ────────────────────────────────────────────────

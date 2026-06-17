@@ -222,8 +222,7 @@ class DailyReportController extends BaseApiController
                 'reportEquipments.equipment',
                 'shifts.employees',
                 'rig:id,name,code',
-                'previousReport',
-            ]),
+            ])->append('previous_report'),
             'Daily report created'
         );
     }
