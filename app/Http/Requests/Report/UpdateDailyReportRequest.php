@@ -35,7 +35,7 @@ class UpdateDailyReportRequest extends FormRequest
             'shifts'                          => ['nullable', 'array', 'max:2'],
             'shifts.*.periode'                => ['required', 'in:day,night'],
             'shifts.*.employees'              => ['nullable', 'array'],
-            'shifts.*.employees.*.employee_id' => ['required', 'exists:employees,id'],
+            'shifts.*.employees.*.employee_id'=> ['required', 'exists:employees,id'],
             'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
             'shifts.*.employees.*.status'     => ['nullable', 'in:onsite,onBase,onLeave'],
         ];

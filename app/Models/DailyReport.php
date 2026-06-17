@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class DailyReport extends Model
 {
@@ -86,6 +87,14 @@ class DailyReport extends Model
     public function scopeSubmitted($query)
     {
         return $query->where('status', 'submitted');
+    }
+
+    public function previousReport(): HasOne
+    {
+        return $this->hasOne(DailyReport::class, 'rig_id', 'rig_id')
+            ->where('report_date', '<', $this->report_date)
+            ->orderByDesc('report_date')
+            ->limit(1);
     }
 
     // ─── Computed ─────────────────────────────────────────────────────

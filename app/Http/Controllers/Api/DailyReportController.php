@@ -170,7 +170,6 @@ class DailyReportController extends BaseApiController
                                     $e['employee_id'] => [
                                         'function' => $e['function'] ?? null,
                                         'status'   => $e['status'] ?? 'onsite',
-                                        'photo'    => $e->employee_id ? asset($e->employee?->photo) : null,
                                     ],
                                 ])->toArray()
                             );
@@ -223,6 +222,7 @@ class DailyReportController extends BaseApiController
                 'reportEquipments.equipment',
                 'shifts.employees',
                 'rig:id,name,code',
+                'previousReport',
             ]),
             'Daily report created'
         );
@@ -237,7 +237,7 @@ class DailyReportController extends BaseApiController
             'author:id,full_name',
             'tools.drillingTool.toolType:id,name',
             'reportEquipments.equipment:id,name,serial_number,status',
-            'shifts.employees:id,full_name,position_id',
+            'shifts.employees:id,full_name,photo,position_id',
             'shifts.employees.position:id,name',
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
@@ -263,26 +263,26 @@ class DailyReportController extends BaseApiController
     }
 
     /** PUT /api/daily-reports/{report} */
-    public function update(UpdateDailyReportRequest $request, DailyReport $report): JsonResponse
+    public function update(UpdateDailyReportRequest $request, DailyReport $daily_report): JsonResponse
     {
-        if ($report->status !== 'draft') {
+        if ($daily_report->status !== 'draft') {
             return $this->error('Only draft reports can be edited', 422);
         }
 
-        DB::transaction(function () use ($request, $report) {
+        DB::transaction(function () use ($request, $daily_report) {
             $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
 
             if (isset($data['depth_start'], $data['depth_end'])) {
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
             }
 
-            $report->update($data);
+            $daily_report->update($data);
 
             if ($request->filled('tools')) {
-                $report->tools()->delete();
+                $daily_report->tools()->delete();
                 DailyReportTool::insert(
                     collect($request->tools)->map(fn($t) => [
-                        'report_id'        => $report->id,
+                        'report_id'        => $daily_report->id,
                         'drilling_tool_id' => $t['drilling_tool_id'],
                         'quantity_used'    => $t['quantity_used'] ?? 0,
                         'total_length'     => $t['total_length'] ?? 0,
@@ -295,7 +295,7 @@ class DailyReportController extends BaseApiController
             // تحديث موظفي الـ shifts — sync بدون حذف الـ shift نفسه
             if ($request->filled('shifts')) {
                 foreach ($request->shifts as $shiftData) {
-                    $shift = $report->shifts()->firstOrCreate([
+                    $shift = $daily_report->shifts()->firstOrCreate([
                         'periode' => $shiftData['periode'],
                     ]);
 
@@ -314,7 +314,7 @@ class DailyReportController extends BaseApiController
         });
 
         return $this->success(
-            $report->fresh(['tools', 'reportEquipments', 'shifts.employees']),
+            $daily_report->fresh(['tools', 'reportEquipments', 'shifts.employees']),
             'Report updated'
         );
     }
