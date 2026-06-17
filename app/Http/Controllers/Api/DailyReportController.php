@@ -161,6 +161,7 @@ class DailyReportController extends BaseApiController
                         $shift = Shift::create([
                             'report_id' => $report->id,
                             'periode'   => $shiftData['periode'],
+                            'date'      => $report->report_date,
                         ]);
 
                         if (!empty($shiftData['employees'])) {
@@ -169,6 +170,7 @@ class DailyReportController extends BaseApiController
                                     $e['employee_id'] => [
                                         'function' => $e['function'] ?? null,
                                         'status'   => $e['status'] ?? 'onsite',
+                                        'photo'    => $e->employee_id ? asset($e->employee?->photo) : null,
                                     ],
                                 ])->toArray()
                             );
@@ -248,6 +250,7 @@ class DailyReportController extends BaseApiController
                 'function' => $emp->pivot->function ?? null,
                 'status'   => $emp->pivot->status ?? null,
                 'shift'    => $shift->periode,
+                'photo_url' => $emp->photo ? asset($emp->photo) : null,
             ]))
             ->unique('id')
             ->values();

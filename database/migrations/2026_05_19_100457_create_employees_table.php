@@ -26,7 +26,6 @@ return new class extends Migration
 
         Schema::create('shifts', function (Blueprint $table) {
             $table->id();
-            $table->date('date');
             $table->enum('periode', ['day', 'night']);
             $table->foreignId('rig_id')->nullable()->constrained('rigs')->nullOnDelete();
             $table->timestamps();

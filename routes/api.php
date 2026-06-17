@@ -132,8 +132,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('shifts')->group(function () {
         Route::post('{shift}/employees',                       [ShiftController::class, 'attachEmployee']);
         Route::delete('{shift}/employees/{employeeId}',        [ShiftController::class, 'detachEmployee']);
+        Route::get('/',                                        [ShiftController::class, 'index']);
+        Route::get('{shift}',                                  [ShiftController::class, 'show']);
+        Route::put('{shift}',                                  [ShiftController::class, 'update']);
+        Route::delete('{shift}',                               [ShiftController::class, 'destroy']);
     });
-    Route::apiResource('shifts', ShiftController::class);
+    //Route::apiResource('shifts', ShiftController::class);
 
     // ── Equipment ─────────────────────────────────────────────────────
     Route::prefix('equipments')->group(function () {
