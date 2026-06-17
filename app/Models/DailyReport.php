@@ -38,6 +38,8 @@ class DailyReport extends Model
         'incidents'        => 'integer',
     ];
 
+    protected $appends = ['previous_report'];
+
     public const STATUSES = ['draft', 'submitted', 'approved'];
 
     // ─── Relationships ────────────────────────────────────────────────
@@ -89,12 +91,12 @@ class DailyReport extends Model
         return $query->where('status', 'submitted');
     }
 
-    public function previousReport(): HasOne
+    public function getPreviousReportAttribute(): ?DailyReport
     {
-        return $this->hasOne(DailyReport::class, 'rig_id', 'rig_id')
+        return DailyReport::where('rig_id', $this->rig_id)
             ->where('report_date', '<', $this->report_date)
             ->orderByDesc('report_date')
-            ->limit(1);
+            ->first();
     }
 
     // ─── Computed ─────────────────────────────────────────────────────
