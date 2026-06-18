@@ -39,6 +39,7 @@ class ShiftController extends BaseApiController
             'report:id,rig_id,report_date,status',
             'report.rig:id,name,code',
             'employees' => fn($q) => $q->with('position:id,name')->withPivot(['function', 'status']),
+            'mudCharacteristic',
         ]);
         return $this->success($shift);
     }

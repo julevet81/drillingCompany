@@ -38,6 +38,11 @@ class UpdateDailyReportRequest extends FormRequest
             'shifts.*.employees.*.employee_id'=> ['required', 'exists:employees,id'],
             'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
             'shifts.*.employees.*.status'     => ['nullable', 'in:onsite,onBase,onLeave'],
+            'shifts.*.mud'              => ['nullable', 'array'],
+            'shifts.*.mud.density'      => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.mud.viscosity'    => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.mud.ph'           => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
+            'shifts.*.mud.filtra'       => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
         ];
     }
 }

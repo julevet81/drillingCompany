@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\MudCharacteristic;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Shift extends Model
 {
@@ -27,6 +29,11 @@ class Shift extends Model
     {
         return $this->belongsToMany(Employee::class, 'employee_shifts')
             ->withPivot(['function', 'status']);
+    }
+
+    public function mudCharacteristic(): HasOne
+    {
+        return $this->hasOne(MudCharacteristic::class);
     }
 
     public function scopeForDate($query, $date)

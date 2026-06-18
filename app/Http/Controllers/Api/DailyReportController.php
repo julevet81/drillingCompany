@@ -26,6 +26,7 @@ class DailyReportController extends BaseApiController
             'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
             'shifts.employees:id,full_name,photo,position_id',
             'shifts.employees.position:id,name',
+            'shifts.mudCharacteristic',
         ])->withCount(['tools', 'reportEquipments', 'shifts']);
 
         if ($request->filled('date'))   $query->whereDate('report_date', $request->date);
@@ -134,7 +135,6 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('tools')) {
                     DailyReportTool::insert(
                         collect($request->tools)->map(fn($t) => [
-                            'report_id'        => $report->id,
                             'drilling_tool_id' => $t['drilling_tool_id'],
                             'quantity_used'    => $t['quantity_used'] ?? 0,
                             'total_length'     => $t['total_length'] ?? 0,
@@ -148,7 +148,6 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('equipments')) {
                     foreach ($request->equipments as $e) {
                         DailyReportEquipment::create([
-                            'report_id'    => $report->id,
                             'equipment_id' => $e['equipment_id'],
                             'status'       => $e['status'] ?? 'Operational',
                         ]);
@@ -161,7 +160,6 @@ class DailyReportController extends BaseApiController
                         $shift = Shift::create([
                             'report_id' => $report->id,
                             'periode'   => $shiftData['periode'],
-                            'date'      => $report->report_date,
                         ]);
 
                         if (!empty($shiftData['employees'])) {
@@ -173,6 +171,16 @@ class DailyReportController extends BaseApiController
                                     ],
                                 ])->toArray()
                             );
+                        }
+
+                        // ← إضافة mud characteristics
+                        if (!empty($shiftData['mud'])) {
+                            $shift->mudCharacteristic()->create([
+                                'mud_density'   => $shiftData['mud']['density'],
+                                'mud_viscosity' => $shiftData['mud']['viscosity'],
+                                'mud_pH'        => $shiftData['mud']['ph'],
+                                'mud_filtra'    => $shiftData['mud']['filtra'],
+                            ]);
                         }
                     }
                 }
@@ -195,7 +203,6 @@ class DailyReportController extends BaseApiController
                         $rigMaterial->update(['quantity' => $newQty]);
 
                         MaterialLog::create([
-                            'report_id'       => $report->id,
                             'rig_material_id' => $rigMaterial->id,
                             'log_date'        => $report->report_date,
                             'consumed'        => $m['consumed'] ?? 0,
@@ -221,6 +228,7 @@ class DailyReportController extends BaseApiController
                 'tools.drillingTool.toolType',
                 'reportEquipments.equipment',
                 'shifts.employees',
+                'shifts.mudCharacteristic',
                 'rig:id,name,code',
             ])->append('previous_report'),
             'Daily report created'
@@ -238,6 +246,7 @@ class DailyReportController extends BaseApiController
             'reportEquipments.equipment:id,name,serial_number,status',
             'shifts.employees:id,full_name,photo,position_id',
             'shifts.employees.position:id,name',
+            'shifts.mudCharacteristic',
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
 
@@ -308,12 +317,25 @@ class DailyReportController extends BaseApiController
                             ])->toArray()
                         );
                     }
+
+                    // ← تحديث أو إنشاء mud characteristics
+                    if (!empty($shiftData['mud'])) {
+                        $shift->mudCharacteristic()->updateOrCreate(
+                            ['shift_id' => $shift->id],
+                            [
+                                'mud_density'   => $shiftData['mud']['density'],
+                                'mud_viscosity' => $shiftData['mud']['viscosity'],
+                                'mud_pH'        => $shiftData['mud']['ph'],
+                                'mud_filtra'    => $shiftData['mud']['filtra'],
+                            ]
+                        );
+                    }
                 }
             }
         });
 
         return $this->success(
-            $daily_report->fresh(['tools', 'reportEquipments', 'shifts.employees']),
+            $daily_report->fresh(['tools', 'reportEquipments', 'shifts.employees', 'shifts.mudCharacteristic']),
             'Report updated'
         );
     }

@@ -250,6 +250,13 @@ class DailyReportSeeder extends Seeder
             if (!empty($syncData)) {
                 $shift->employees()->sync($syncData);
             }
+
+            $shift->mudCharacteristic()->create([
+                'mud_density'   => round(rand(120, 140) / 100, 2), // 1.20 → 1.40
+                'mud_viscosity' => round(rand(35, 55) + (rand(0, 9) / 10), 1),
+                'mud_pH'        => round(rand(85, 105) / 10, 1),   // 8.5 → 10.5
+                'mud_filtra'    => round(rand(20, 50) / 10, 1),    // 2.0 → 5.0
+            ]);
         }
     }
 
