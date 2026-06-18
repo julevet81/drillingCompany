@@ -29,8 +29,6 @@ return new class extends Migration
             $table->enum('periode', ['day', 'night']);
             $table->foreignId('rig_id')->nullable()->constrained('rigs')->nullOnDelete();
             $table->timestamps();
-
-            $table->index(['date', 'periode']);
             $table->index('rig_id');
         });
 

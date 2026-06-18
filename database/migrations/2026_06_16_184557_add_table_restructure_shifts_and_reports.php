@@ -51,7 +51,6 @@ return new class extends Migration
             $table->dropUnique(['report_id', 'periode']);
             $table->dropForeign(['report_id']);
             $table->dropColumn('report_id');
-
             $table->foreignId('rig_id')->nullable()->constrained('rigs')->nullOnDelete();
             $table->index('rig_id');
         });
