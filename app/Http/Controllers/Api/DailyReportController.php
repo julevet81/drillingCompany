@@ -135,6 +135,7 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('tools')) {
                     DailyReportTool::insert(
                         collect($request->tools)->map(fn($t) => [
+                            'report_id'        => $report->id,
                             'drilling_tool_id' => $t['drilling_tool_id'],
                             'quantity_used'    => $t['quantity_used'] ?? 0,
                             'total_length'     => $t['total_length'] ?? 0,
@@ -148,6 +149,7 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('equipments')) {
                     foreach ($request->equipments as $e) {
                         DailyReportEquipment::create([
+                            'report_id'    => $report->id,
                             'equipment_id' => $e['equipment_id'],
                             'status'       => $e['status'] ?? 'Operational',
                         ]);
@@ -203,6 +205,7 @@ class DailyReportController extends BaseApiController
                         $rigMaterial->update(['quantity' => $newQty]);
 
                         MaterialLog::create([
+                            'report_id'       => $report->id,
                             'rig_material_id' => $rigMaterial->id,
                             'log_date'        => $report->report_date,
                             'consumed'        => $m['consumed'] ?? 0,
