@@ -10,16 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Shift extends Model
 {
-    protected $fillable = ['report_id', 'periode'];
+    protected $fillable = ['report_id', 'post', 'start_time', 'end_time'];
 
-    protected $casts = ['date' => 'date'];
+    protected $casts = [
+        'start_time' => 'datetime:H:i',
+        'end_time'   => 'datetime:H:i',
+    ];
 
     public function report(): BelongsTo
     {
         return $this->belongsTo(DailyReport::class, 'report_id');
     }
 
-    // الـ rig نصل إليه عبر التقرير
     public function getRigAttribute()
     {
         return $this->report?->rig;

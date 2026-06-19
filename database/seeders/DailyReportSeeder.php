@@ -36,9 +36,10 @@ class DailyReportSeeder extends Seeder
         $allEmployees = Employee::all();
 
         // توزيع الموظفين حسب الـ rig
+        // توزيع الموظفين حسب الـ rig
         $employeeGroups = [
             'RIG-001' => [
-                'day'   => [
+                'post_1' => [
                     ['name' => 'Ahmed Benali',    'function' => 'Tool Pusher',   'status' => 'onsite'],
                     ['name' => 'Karim Messaoudi', 'function' => 'Driller',       'status' => 'onsite'],
                     ['name' => 'Omar Saidi',       'function' => 'Derrickman',    'status' => 'onsite'],
@@ -46,30 +47,30 @@ class DailyReportSeeder extends Seeder
                     ['name' => 'Farid Zerrouki',  'function' => 'Floorhand',     'status' => 'onsite'],
                     ['name' => 'Tarek Hamdi',     'function' => 'Floorhand',     'status' => 'onBase'],
                 ],
-                'night' => [
+                'post_2' => [
                     ['name' => 'Mourad Belkacem', 'function' => 'Mud Engineer',   'status' => 'onsite'],
                     ['name' => 'Sofiane Rais',    'function' => 'Safety Officer', 'status' => 'onsite'],
                 ],
             ],
             'RIG-002' => [
-                'day'   => [
+                'post_1' => [
                     ['name' => 'Bilal Ouali',      'function' => 'Electrician', 'status' => 'onsite'],
                     ['name' => 'Nabil Gaci',       'function' => 'Mechanic',    'status' => 'onsite'],
                     ['name' => 'Rachid Benmoussa', 'function' => 'Roughneck',   'status' => 'onsite'],
                 ],
-                'night' => [],
+                'post_2' => [],
             ],
             'RIG-003' => [
-                'day'   => [
+                'post_1' => [
                     ['name' => 'Djamel Saidani', 'function' => 'Roughneck', 'status' => 'onLeave'],
                 ],
-                'night' => [],
+                'post_2' => [],
             ],
             'RIG-005' => [
-                'day'   => [
+                'post_1' => [
                     ['name' => 'Farid Zerrouki', 'function' => 'Floorhand', 'status' => 'onsite'],
                 ],
-                'night' => [],
+                'post_2' => [],
             ],
         ];
 
@@ -123,7 +124,7 @@ class DailyReportSeeder extends Seeder
                 ->where('material_type_id', $diesel->id)->first()
                 : null;
 
-            $rigEmployeeGroups = $employeeGroups[$config['code']] ?? ['day' => [], 'night' => []];
+            $rigEmployeeGroups = $employeeGroups[$config['code']] ?? ['post_1' => [], 'post_2' => []];
 
             $currentDepth = $config['start_depth'];
 
@@ -226,13 +227,20 @@ class DailyReportSeeder extends Seeder
 
     private function seedShifts(DailyReport $report, array $groups, $allEmployees): void
     {
-        foreach (['day', 'night'] as $periode) {
-            $empList = $groups[$periode] ?? [];
+        $times = [
+            'post_1' => ['start' => '06:00', 'end' => '18:00'],
+            'post_2' => ['start' => '18:00', 'end' => '06:00'],
+        ];
+
+        foreach (['post_1', 'post_2'] as $post) {
+            $empList = $groups[$post] ?? [];
             if (empty($empList)) continue;
 
             $shift = Shift::create([
-                'report_id' => $report->id,
-                'periode'   => $periode,
+                'report_id'  => $report->id,
+                'post'       => $post,
+                'start_time' => $times[$post]['start'],
+                'end_time'   => $times[$post]['end'],
             ]);
 
             $syncData = [];
@@ -251,10 +259,10 @@ class DailyReportSeeder extends Seeder
             }
 
             $shift->mudCharacteristic()->create([
-                'mud_density'   => round(rand(120, 140) / 100, 2), // 1.20 → 1.40
+                'mud_density'   => round(rand(120, 140) / 100, 2),
                 'mud_viscosity' => round(rand(35, 55) + (rand(0, 9) / 10), 1),
-                'mud_pH'        => round(rand(85, 105) / 10, 1),   // 8.5 → 10.5
-                'mud_filtra'    => round(rand(20, 50) / 10, 1),    // 2.0 → 5.0
+                'mud_pH'        => round(rand(85, 105) / 10, 1),
+                'mud_filtra'    => round(rand(20, 50) / 10, 1),
             ]);
         }
     }

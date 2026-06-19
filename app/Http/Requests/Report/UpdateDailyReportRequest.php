@@ -32,17 +32,19 @@ class UpdateDailyReportRequest extends FormRequest
             'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
 
             // تعديل موظفي الـ shifts الموجودة
-            'shifts'                          => ['nullable', 'array', 'max:2'],
-            'shifts.*.periode'                => ['required', 'in:day,night'],
-            'shifts.*.employees'              => ['nullable', 'array'],
-            'shifts.*.employees.*.employee_id'=> ['required', 'exists:employees,id'],
-            'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
-            'shifts.*.employees.*.status'     => ['nullable', 'in:onsite,onBase,onLeave'],
-            'shifts.*.mud'              => ['nullable', 'array'],
-            'shifts.*.mud.density'      => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
-            'shifts.*.mud.viscosity'    => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
-            'shifts.*.mud.ph'           => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
-            'shifts.*.mud.filtra'       => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts'                            => ['nullable', 'array', 'max:2'],
+            'shifts.*.post'                     => ['required', 'in:post_1,post_2'],
+            'shifts.*.start_time'               => ['required', 'date_format:H:i'],
+            'shifts.*.end_time'                 => ['required', 'date_format:H:i', 'after:shifts.*.start_time'],
+            'shifts.*.employees'                => ['nullable', 'array'],
+            'shifts.*.employees.*.employee_id'  => ['required', 'exists:employees,id'],
+            'shifts.*.employees.*.function'     => ['nullable', 'string', 'max:100'],
+            'shifts.*.employees.*.status'       => ['nullable', 'in:onsite,onBase,onLeave'],
+            'shifts.*.mud'                      => ['nullable', 'array'],
+            'shifts.*.mud.density'              => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.mud.viscosity'            => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.mud.ph'                   => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
+            'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
         ];
     }
 }

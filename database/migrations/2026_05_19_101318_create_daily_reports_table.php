@@ -18,7 +18,6 @@ return new class extends Migration
             $table->decimal('depth_end', 10, 2)->default(0);
             $table->decimal('daily_progress', 10, 2)->default(0);
 
-            $table->integer('workers_count')->default(0);
             $table->decimal('fuel_consumption', 12, 2)->default(0);
 
             // NPT / Safety fields (visible in Rig Detail page)

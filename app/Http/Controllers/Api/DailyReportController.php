@@ -50,18 +50,18 @@ class DailyReportController extends BaseApiController
 
             $report->employees_list = $report->shifts
                 ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
-                    'id'        => $emp->id,
-                    'name'      => $emp->full_name,
-                    'position'  => $emp->position?->name,
-                    'photo_url' => $emp->photo ? asset($emp->photo) : null,
-                    'function'  => $emp->pivot->function ?? null,
-                    'status'    => $emp->pivot->status ?? null,
-                    'shift'     => $shift->periode,
+                    'id'         => $emp->id,
+                    'name'       => $emp->full_name,
+                    'position'   => $emp->position?->name,
+                    'photo_url'  => $emp->photo ? asset($emp->photo) : null,
+                    'function'   => $emp->pivot->function ?? null,
+                    'status'     => $emp->pivot->status ?? null,
+                    'shift'      => $shift->post,        
+                    'start_time' => $shift->start_time,  
+                    'end_time'   => $shift->end_time,
                 ]))
                 ->unique('id')
                 ->values();
-
-            $report->workers_count = $report->employees_list->count();
 
             return $report;
         });
@@ -144,7 +144,7 @@ class DailyReportController extends BaseApiController
                         ])->toArray()
                     );
                 }
-
+                
                 // Equipments
                 if ($request->filled('equipments')) {
                     foreach ($request->equipments as $e) {
@@ -160,8 +160,10 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('shifts')) {
                     foreach ($request->shifts as $shiftData) {
                         $shift = Shift::create([
-                            'report_id' => $report->id,
-                            'periode'   => $shiftData['periode'],
+                            'report_id'  => $report->id,
+                            'post'       => $shiftData['post'],
+                            'start_time' => $shiftData['start_time'],
+                            'end_time'   => $shiftData['end_time'],
                         ]);
 
                         if (!empty($shiftData['employees'])) {
@@ -175,7 +177,6 @@ class DailyReportController extends BaseApiController
                             );
                         }
 
-                        // ← إضافة mud characteristics
                         if (!empty($shiftData['mud'])) {
                             $shift->mudCharacteristic()->create([
                                 'mud_density'   => $shiftData['mud']['density'],
@@ -260,7 +261,7 @@ class DailyReportController extends BaseApiController
                 'position' => $emp->position?->name,
                 'function' => $emp->pivot->function ?? null,
                 'status'   => $emp->pivot->status ?? null,
-                'shift'    => $shift->periode,
+                'shift'    => $shift->post,
                 'photo_url' => $emp->photo ? asset($emp->photo) : null,
             ]))
             ->unique('id')
@@ -306,8 +307,15 @@ class DailyReportController extends BaseApiController
             // تحديث موظفي الـ shifts — sync بدون حذف الـ shift نفسه
             if ($request->filled('shifts')) {
                 foreach ($request->shifts as $shiftData) {
-                    $shift = $daily_report->shifts()->firstOrCreate([
-                        'periode' => $shiftData['periode'],
+                    $shift = $daily_report->shifts()->firstOrCreate(
+                        ['post' => $shiftData['post']],
+                        ['start_time' => $shiftData['start_time'], 'end_time' => $shiftData['end_time']]
+                    );
+
+                    // تحديث الأوقات لو الـ shift كان موجوداً
+                    $shift->update([
+                        'start_time' => $shiftData['start_time'],
+                        'end_time'   => $shiftData['end_time'],
                     ]);
 
                     if (!empty($shiftData['employees'])) {
@@ -321,7 +329,6 @@ class DailyReportController extends BaseApiController
                         );
                     }
 
-                    // ← تحديث أو إنشاء mud characteristics
                     if (!empty($shiftData['mud'])) {
                         $shift->mudCharacteristic()->updateOrCreate(
                             ['shift_id' => $shift->id],

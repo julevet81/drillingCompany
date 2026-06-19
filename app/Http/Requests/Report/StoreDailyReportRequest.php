@@ -44,7 +44,9 @@ class StoreDailyReportRequest extends FormRequest
 
             // Shifts — يُنشأ مع التقرير مباشرة
             'shifts'                          => ['nullable', 'array', 'max:2'],
-            'shifts.*.periode'                => ['required', 'in:day,night'],
+            'shifts.*.post'                     => ['required', 'in:post_1,post_2'],
+            'shifts.*.start_time'               => ['required', 'date_format:H:i'],
+            'shifts.*.end_time'                 => ['required', 'date_format:H:i', 'after:shifts.*.start_time'],
             'shifts.*.employees'              => ['nullable', 'array'],
             'shifts.*.employees.*.employee_id' => ['required', 'exists:employees,id'],
             'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
@@ -69,7 +71,7 @@ class StoreDailyReportRequest extends FormRequest
             'report_date.unique'      => 'A report for this rig and date already exists.',
             'depth_end.gte'           => 'End depth must be ≥ start depth.',
             'shifts.max'              => 'A report can have at most 2 shifts (day and night).',
-            'shifts.*.periode.in'     => 'Shift periode must be day or night.',
+            'shifts.*.post.in'        => 'Shift post must be post_1 or post_2.',
         ];
     }
 }

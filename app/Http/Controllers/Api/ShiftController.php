@@ -19,9 +19,8 @@ class ShiftController extends BaseApiController
         ]);
 
         if ($request->filled('report_id')) $query->where('report_id', $request->report_id);
-        if ($request->filled('periode'))   $query->where('periode', $request->periode);
+        if ($request->filled('post'))      $query->where('post', $request->post); // ← تغيّر من periode
 
-        // فلترة بالـ rig أو التاريخ عبر التقرير
         if ($request->filled('rig_id')) {
             $query->whereHas('report', fn($q) => $q->where('rig_id', $request->rig_id));
         }
@@ -48,7 +47,9 @@ class ShiftController extends BaseApiController
     public function update(Request $request, Shift $shift): JsonResponse
     {
         $data = $request->validate([
-            'periode' => ['required', 'in:day,night'],
+            'post'       => ['required', 'in:post_1,post_2'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time'   => ['required', 'date_format:H:i'],
         ]);
         $shift->update($data);
         return $this->success($shift->fresh(), 'Shift updated');
