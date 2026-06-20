@@ -84,6 +84,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('daily-reports/{report}/submit',   [DailyReportController::class, 'submit']);
     Route::patch('daily-reports/{report}/approve',  [DailyReportController::class, 'approve'])
         ->middleware('role:Super_Admin');
+    Route::get('daily-reports/last/{rig}', [DailyReportController::class, 'lastForRig']);
     Route::apiResource('daily-reports', DailyReportController::class);
 
     // ── BHA / Drilling Tools ──────────────────────────────────────────
