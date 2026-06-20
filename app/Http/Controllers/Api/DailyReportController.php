@@ -8,7 +8,6 @@ use App\Models\DailyReport;
 use App\Models\DailyReportTool;
 use App\Models\DailyReportEquipment;
 use App\Models\MaterialLog;
-use App\Models\Rig;
 use App\Models\RigMaterial;
 use App\Models\Shift;
 use Illuminate\Database\QueryException;
@@ -276,48 +275,47 @@ class DailyReportController extends BaseApiController
     }
 
     /** GET /api/daily-reports/last/{rig} */
-    /** GET /api/daily-reports/last/{rig} */
-public function lastForRig(Rig $rig): JsonResponse
-{
-    $report = DailyReport::where('rig.id', $rig->id)
-        ->latest('report_date')
-        ->with([
-            'rig:id,name,code',
-            'author:id,full_name',
-            'tools.drillingTool.toolType:id,name',
-            'reportEquipments.equipment:id,name,serial_number,status',
-            'shifts.employees:id,full_name,photo,position_id',
-            'shifts.employees.position:id,name',
-            'shifts.mudCharacteristic',
-            'materialLogs.rigMaterial.materialType:id,name,unit',
-        ])
-        ->first();
-
-    if (!$report) {
-        return $this->error('No reports found for this rig.', 404);
+    public function lastForRig(int $rigId): JsonResponse
+    {
+        $report = DailyReport::where('rig_id', $rigId)
+            ->latest('report_date')
+            ->with([
+                'rig:id,name,code',
+                'author:id,full_name',
+                'tools.drillingTool.toolType:id,name',
+                'reportEquipments.equipment:id,name,serial_number,status',
+                'shifts.employees:id,full_name,photo,position_id',
+                'shifts.employees.position:id,name',
+                'shifts.mudCharacteristic',
+                'materialLogs.rigMaterial.materialType:id,name,unit',
+            ])
+            ->first();
+    
+        if (!$report) {
+            return $this->error('No reports found for this rig.', 404);
+        }
+    
+        $employees = $report->shifts
+            ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
+                'id'         => $emp->id,
+                'name'       => $emp->full_name,
+                'position'   => $emp->position?->name,
+                'photo_url'  => $emp->photo ? asset($emp->photo) : null,
+                'function'   => $emp->pivot->function ?? null,
+                'status'     => $emp->pivot->status ?? null,
+                'shift'      => $shift->post,
+                'start_time' => $shift->start_time,
+                'end_time'   => $shift->end_time,
+            ]))
+            ->unique('id')
+            ->values();
+    
+        return $this->success(array_merge($report->toArray(), [
+            'total_bha_length' => $report->total_bha_length,
+            'workers_count'    => $employees->count(),
+            'employees'        => $employees,
+        ]));
     }
-
-    $employees = $report->shifts
-        ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
-            'id'         => $emp->id,
-            'name'       => $emp->full_name,
-            'position'   => $emp->position?->name,
-            'photo_url'  => $emp->photo ? asset($emp->photo) : null,
-            'function'   => $emp->pivot->function ?? null,
-            'status'     => $emp->pivot->status ?? null,
-            'shift'      => $shift->post,
-            'start_time' => $shift->start_time,
-            'end_time'   => $shift->end_time,
-        ]))
-        ->unique('id')
-        ->values();
-
-    return $this->success(array_merge($report->toArray(), [
-        'total_bha_length' => $report->total_bha_length,
-        'workers_count'    => $employees->count(),
-        'employees'        => $employees,
-    ]));
-}
 
     /** PUT /api/daily-reports/{report} */
     public function update(UpdateDailyReportRequest $request, DailyReport $daily_report): JsonResponse
