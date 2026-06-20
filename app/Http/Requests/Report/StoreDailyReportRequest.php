@@ -45,8 +45,8 @@ class StoreDailyReportRequest extends FormRequest
             // Shifts — يُنشأ مع التقرير مباشرة
             'shifts'                          => ['nullable', 'array', 'max:2'],
             'shifts.*.post'                     => ['required', 'in:post_1,post_2'],
-            'shifts.*.start_time'               => ['required', 'date_format:H:i'],
-            'shifts.*.end_time'                 => ['required', 'date_format:H:i', 'after:shifts.*.start_time'],
+            'shifts.*.start_time' => ['required', 'date_format:H:i'],
+            'shifts.*.end_time'   => ['required', 'date_format:H:i'],
             'shifts.*.employees'              => ['nullable', 'array'],
             'shifts.*.employees.*.employee_id' => ['required', 'exists:employees,id'],
             'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
