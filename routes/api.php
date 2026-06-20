@@ -81,10 +81,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ── Daily Reports ─────────────────────────────────────────────────
     // Static routes first — then apiResource
     Route::get('daily-reports/summary',            [DailyReportController::class, 'summary']);
+    Route::get('daily-reports/last/{rig}',         [DailyReportController::class, 'lastForRig']);
     Route::patch('daily-reports/{report}/submit',   [DailyReportController::class, 'submit']);
     Route::patch('daily-reports/{report}/approve',  [DailyReportController::class, 'approve'])
         ->middleware('role:Super_Admin');
-    Route::get('daily-reports/last/{rig}', [DailyReportController::class, 'lastForRig']);
     Route::apiResource('daily-reports', DailyReportController::class);
 
     // ── BHA / Drilling Tools ──────────────────────────────────────────
