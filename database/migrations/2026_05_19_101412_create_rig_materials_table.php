@@ -46,6 +46,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('report_id')->constrained('daily_reports')->cascadeOnDelete();
             $table->foreignId('equipment_id')->constrained('equipments')->restrictOnDelete();
+            $table->decimal('hours_used', 10, 2)->default(0);
             $table->enum('status', ['Operational', 'Maintenance', 'Out_of_Service'])->nullable();
             $table->timestamps();
 

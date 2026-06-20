@@ -7,6 +7,7 @@ use App\Http\Requests\Report\UpdateDailyReportRequest;
 use App\Models\DailyReport;
 use App\Models\DailyReportTool;
 use App\Models\DailyReportEquipment;
+use App\Models\Equipment;
 use App\Models\MaterialLog;
 use App\Models\Rig;
 use App\Models\RigMaterial;
@@ -29,6 +30,10 @@ class DailyReportController extends BaseApiController
             'shifts.employees.position:id,name',
             'shifts.mudCharacteristic',
         ])->withCount(['tools', 'reportEquipments', 'shifts']);
+
+        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
+        $query->whereIn('id', $allowedRigIds);
+        }
 
         if ($request->filled('date'))   $query->whereDate('report_date', $request->date);
         if ($request->filled('status')) $query->where('status', $request->status);
@@ -145,7 +150,7 @@ class DailyReportController extends BaseApiController
                         ])->toArray()
                     );
                 }
-                
+
                 // Equipments
                 if ($request->filled('equipments')) {
                     foreach ($request->equipments as $e) {
@@ -153,7 +158,14 @@ class DailyReportController extends BaseApiController
                             'report_id'    => $report->id,
                             'equipment_id' => $e['equipment_id'],
                             'status'       => $e['status'] ?? 'Operational',
+                            'hours_used'   => $e['hours_used'] ?? 0,
                         ]);
+
+                        // تحديث الساعات الكلية للمعدة
+                        if (!empty($e['hours_used'])) {
+                            Equipment::where('id', $e['equipment_id'])
+                                ->increment('hours_of_operation', $e['hours_used']);
+                        }
                     }
                 }
 
@@ -277,8 +289,8 @@ class DailyReportController extends BaseApiController
 
     /** GET /api/daily-reports/last/{rig} */
     /** GET /api/daily-reports/last/{rig} */
-public function lastForRig(Rig $rig): JsonResponse
-{
+    public function lastForRig(Rig $rig): JsonResponse
+    {   
     $report = DailyReport::where('rig_id', $rig->id)
         ->latest('report_date')
         ->with([
@@ -292,11 +304,11 @@ public function lastForRig(Rig $rig): JsonResponse
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ])
         ->first();
-
+    
     if (!$report) {
         return $this->error('No reports found for this rig.', 404);
     }
-
+    
     $employees = $report->shifts
         ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
             'id'         => $emp->id,
@@ -311,13 +323,13 @@ public function lastForRig(Rig $rig): JsonResponse
         ]))
         ->unique('id')
         ->values();
-
-    return $this->success(array_merge($report->toArray(), [
-        'total_bha_length' => $report->total_bha_length,
-        'workers_count'    => $employees->count(),
-        'employees'        => $employees,
-    ]));
-}
+    
+        return $this->success(array_merge($report->toArray(), [
+            'total_bha_length' => $report->total_bha_length,
+            'workers_count'    => $employees->count(),
+            'employees'        => $employees,
+        ]));
+    }
 
     /** PUT /api/daily-reports/{report} */
     public function update(UpdateDailyReportRequest $request, DailyReport $daily_report): JsonResponse
@@ -349,19 +361,29 @@ public function lastForRig(Rig $rig): JsonResponse
                 );
             }
 
-            // تحديث موظفي الـ shifts — sync بدون حذف الـ shift نفسه
+            // ← مفقود سابقاً: تحديث equipments
+            if ($request->filled('equipments')) {
+                $daily_report->reportEquipments()->delete();
+                foreach ($request->equipments as $e) {
+                    DailyReportEquipment::create([
+                        'report_id'    => $daily_report->id,
+                        'equipment_id' => $e['equipment_id'],
+                        'status'       => $e['status'] ?? 'Operational',
+                        'hours_used'   => $e['hours_used'] ?? 0,
+                    ]);
+                }
+            }
+
+            // تحديث/إنشاء shifts وموظفيهم
             if ($request->filled('shifts')) {
                 foreach ($request->shifts as $shiftData) {
-                    $shift = $daily_report->shifts()->firstOrCreate(
+                    $shift = $daily_report->shifts()->updateOrCreate(
                         ['post' => $shiftData['post']],
-                        ['start_time' => $shiftData['start_time'], 'end_time' => $shiftData['end_time']]
+                        [
+                            'start_time' => $shiftData['start_time'],
+                            'end_time'   => $shiftData['end_time'],
+                        ]
                     );
-
-                    // تحديث الأوقات لو الـ shift كان موجوداً
-                    $shift->update([
-                        'start_time' => $shiftData['start_time'],
-                        'end_time'   => $shiftData['end_time'],
-                    ]);
 
                     if (!empty($shiftData['employees'])) {
                         $shift->employees()->sync(
@@ -387,10 +409,48 @@ public function lastForRig(Rig $rig): JsonResponse
                     }
                 }
             }
+
+            // ← مفقود أيضاً: مواد المخزون لم تُعالج
+            if ($request->filled('materials')) {
+                foreach ($request->materials as $m) {
+                    $rigMaterial = RigMaterial::lockForUpdate()->findOrFail($m['rig_material_id']);
+
+                    $newQty = $rigMaterial->quantity
+                        - ($m['consumed'] ?? 0)
+                        + ($m['added'] ?? 0);
+
+                    if ($newQty < 0) {
+                        throw new \InvalidArgumentException(
+                            "Material '{$rigMaterial->materialType?->name}' stock insufficient."
+                        );
+                    }
+
+                    $rigMaterial->update(['quantity' => $newQty]);
+
+                    MaterialLog::updateOrCreate(
+                        [
+                            'report_id'       => $daily_report->id,
+                            'rig_material_id' => $rigMaterial->id,
+                        ],
+                        [
+                            'log_date'  => $daily_report->report_date,
+                            'consumed'  => $m['consumed'] ?? 0,
+                            'added'     => $m['added'] ?? 0,
+                            'remaining' => $newQty,
+                        ]
+                    );
+                }
+            }
         });
 
         return $this->success(
-            $daily_report->fresh(['tools', 'reportEquipments', 'shifts.employees', 'shifts.mudCharacteristic']),
+            $daily_report->fresh([
+                'tools',
+                'reportEquipments',
+                'shifts.employees',
+                'shifts.mudCharacteristic',
+                'materialLogs',
+            ]),
             'Report updated'
         );
     }

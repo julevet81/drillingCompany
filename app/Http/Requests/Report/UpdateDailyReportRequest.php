@@ -30,6 +30,7 @@ class UpdateDailyReportRequest extends FormRequest
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
             'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
+            'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'], 
 
             // تعديل موظفي الـ shifts الموجودة
             'shifts'                            => ['nullable', 'array', 'max:2'],

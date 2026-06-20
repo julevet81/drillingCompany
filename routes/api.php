@@ -35,7 +35,7 @@ Route::prefix('auth')->group(function () {
 // ════════════════════════════════════════════════════════════════════════
 // PROTECTED — Requires valid Sanctum token
 // ════════════════════════════════════════════════════════════════════════
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
 
     // ── Auth / Profile ────────────────────────────────────────────────
     Route::prefix('auth')->group(function () {
@@ -80,7 +80,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Daily Reports ─────────────────────────────────────────────────
     // Static routes first — then apiResource
-    Route::get('daily-reports/summary',            [DailyReportController::class, 'summary']);
+    Route::get('daily-reports/summary',            [DailyReportController::class, 'summary'])->middleware('role:Super_Admin');
     Route::get('daily-reports/last/{rig}',         [DailyReportController::class, 'lastForRig']);
     Route::patch('daily-reports/{report}/submit',   [DailyReportController::class, 'submit']);
     Route::patch('daily-reports/{report}/approve',  [DailyReportController::class, 'approve'])
