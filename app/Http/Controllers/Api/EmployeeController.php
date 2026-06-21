@@ -18,6 +18,9 @@ class EmployeeController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $query = Employee::with(['position:id,name']);
+        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
+            $query->whereIn('id', $allowedRigIds);
+        }
 
         if ($request->filled('position_id')) $query->where('position_id', $request->position_id);
         //if ($request->filled('search'))      $query->where('full_name', 'like', '%' . $request->search . '%');

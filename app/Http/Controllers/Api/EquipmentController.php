@@ -16,6 +16,10 @@ class EquipmentController extends BaseApiController
     {
         $query = Equipment::with('rig:id,name,code');
 
+        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
+            $query->whereIn('id', $allowedRigIds);
+        }
+
         if ($request->filled('rig_id'))  $query->where('current_rig_id', $request->rig_id);
         if ($request->filled('search')) {
             $s = $request->search;

@@ -18,6 +18,10 @@ class ShiftController extends BaseApiController
             'employees.position:id,name',
         ]);
 
+        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
+            $query->whereIn('id', $allowedRigIds);
+        }
+
         if ($request->filled('report_id')) $query->where('report_id', $request->report_id);
         if ($request->filled('post'))      $query->where('post', $request->post); // ← تغيّر من periode
 

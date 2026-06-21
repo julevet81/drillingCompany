@@ -14,6 +14,9 @@ class DrillingToolController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $query = DrillingTool::with(['toolType', 'rig:id,name,code']);
+        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
+            $query->whereIn('id', $allowedRigIds);
+        }
         if ($request->filled('rig_id'))       $query->where('rig_id', $request->rig_id);
         if ($request->filled('tool_type_id')) $query->where('tool_type_id', $request->tool_type_id);
         return $this->success($query->get());

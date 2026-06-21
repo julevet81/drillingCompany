@@ -101,22 +101,22 @@ class DashboardController extends BaseApiController
     /** GET /api/dashboard/active-rigs */
     public function activeRigsOverview(): JsonResponse
     {
-        $rigs = Rig::with('location:id,name')
-            ->where('status', ['developing','drilling', 'fishing', 'dtm'])
+        $rigs = Rig::with('location:id,name,latitude,longitude')
+            ->whereIn('status', ['developing', 'drilling', 'fishing', 'dtm'])
             ->select(['id', 'name', 'code', 'location_id', 'status', 'current_depth', 'target_depth', 'drilling_phase'])
             ->get()
             ->map(fn($rig) => [
-                'id'              => $rig->id,
-                'name'            => $rig->name,
-                'code'            => $rig->code,
-                'location'        => $rig->location?->name,
-                'latitude'        => $rig->location?->latitude,
-                'longitude'       => $rig->location?->longitude,
-                'status'          => $rig->status,
-                'drilling_phase'  => $rig->drilling_phase,
-                'current_depth'   => $rig->current_depth,
-                'target_depth'    => $rig->target_depth,
-                'progress'        => $rig->progress_percentage,
+                'id'             => $rig->id,
+                'name'           => $rig->name,
+                'code'           => $rig->code,
+                'location'       => $rig->location?->name,
+                'latitude'       => $rig->location?->latitude,
+                'longitude'      => $rig->location?->longitude,
+                'status'         => $rig->status,
+                'drilling_phase' => $rig->drilling_phase,
+                'current_depth'  => $rig->current_depth,
+                'target_depth'   => $rig->target_depth,
+                'progress'       => $rig->progress_percentage,
             ]);
 
         return $this->success($rigs);
