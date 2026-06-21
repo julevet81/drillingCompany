@@ -14,7 +14,7 @@ class UpdateDailyReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'depth_start'      => ['sometimes', 'numeric', 'min:0'],
+            'depth_start'      => ['nullable', 'numeric', 'min:0'],
             'depth_end'        => ['sometimes', 'numeric', 'gte:depth_start'],
             'fuel_consumption' => ['nullable', 'numeric', 'min:0'],
             'incidents'        => ['nullable', 'integer', 'min:0'],
@@ -24,8 +24,8 @@ class UpdateDailyReportRequest extends FormRequest
 
             'tools'                    => ['nullable', 'array'],
             'tools.*.drilling_tool_id' => ['required', 'exists:drilling_tools,id'],
-            'tools.*.quantity_used'    => ['required', 'integer', 'min:0'],
-            'tools.*.total_length'     => ['required', 'numeric', 'min:0'],
+            'tools.*.quantity_used'    => ['sometimes', 'integer', 'min:0'],
+            'tools.*.total_length'     => ['sometimes', 'numeric', 'min:0'],
 
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
@@ -34,9 +34,9 @@ class UpdateDailyReportRequest extends FormRequest
 
             // تعديل موظفي الـ shifts الموجودة
             'shifts'                            => ['nullable', 'array', 'max:2'],
-            'shifts.*.post'                     => ['required', 'in:post_1,post_2'],
-            'shifts.*.start_time' => ['required', 'date_format:H:i'],
-            'shifts.*.end_time'   => ['required', 'date_format:H:i'],
+            'shifts.*.post'                     => ['sometimes', 'in:post_1,post_2'],
+            'shifts.*.start_time'               => ['required', 'date_format:H:i'],
+            'shifts.*.end_time'                 => ['required', 'date_format:H:i'],
             'shifts.*.employees'                => ['nullable', 'array'],
             'shifts.*.employees.*.employee_id'  => ['required', 'exists:employees,id'],
             'shifts.*.employees.*.function'     => ['nullable', 'string', 'max:100'],

@@ -16,7 +16,7 @@ class UserController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $query = User::query()
-            ->with('roles')
+            ->with(['roles', 'managedRigs:id,name,code,manager_id']) // ← أضف manager_id
             ->withCount('managedRigs');
 
         if ($request->has('role') && $request->role != '') {
@@ -33,9 +33,17 @@ class UserController extends BaseApiController
             });
         }
 
-        return $this->paginated(
-            $query->latest()->paginate($request->per_page ?? 15)
-        );
+        $users = $query->latest()->paginate($request->per_page ?? 15);
+
+        // $users->getCollection()->transform(function (User $user) {
+        //     $user->rigs = $user->hasRole('Rig_Manager')
+        //         ? $user->managedRigs
+        //         : [];
+
+        //     return $user;
+        // });
+
+        return $this->paginated($users);
     }
 
     /** GET /api/users/stats */

@@ -71,11 +71,6 @@ class Rig extends Model
         return $this->hasMany(DailyReport::class);
     }
 
-    public function shifts(): HasMany
-    {
-        return $this->hasMany(Shift::class);
-    }
-
     public function rigMaterials(): HasMany
     {
         return $this->hasMany(RigMaterial::class);

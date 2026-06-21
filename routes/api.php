@@ -114,7 +114,7 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
     // ── Employees ─────────────────────────────────────────────────────
     Route::get('positions',                       [EmployeeController::class, 'positions']);
     Route::post('add_postion',                    [EmployeeController::class, 'add_position']);
-    Route::prefix('employees')->group(function () {
+    Route::prefix('employees')->middleware('role:Super_Admin')->group(function () {
         Route::get('stats',                       [EmployeeController::class, 'stats']);
         Route::patch('{employee}/status',         [EmployeeController::class, 'updateStatus']);
         Route::get('/',                            [EmployeeController::class, 'index']);
@@ -125,9 +125,6 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
 
     });
     //Route::apiResource('employees', EmployeeController::class);
-
-    
-    Route::post('employees/{employee}', [EmployeeController::class, 'update']);
 
     // ── Shifts ────────────────────────────────────────────────────────
     Route::prefix('shifts')->group(function () {
@@ -141,7 +138,7 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
     //Route::apiResource('shifts', ShiftController::class);
 
     // ── Equipment ─────────────────────────────────────────────────────
-    Route::prefix('equipments')->group(function () {
+    Route::prefix('equipments')->middleware('role:Super_Admin')->group(function () {
         Route::get('stats',                       [EquipmentController::class, 'stats']);
         Route::delete('{equipment}/photo',        [EquipmentController::class, 'deletePhoto']);
         Route::get('/',                           [EquipmentController::class, 'index']);

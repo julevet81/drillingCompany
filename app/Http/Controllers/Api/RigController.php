@@ -26,6 +26,10 @@ class RigController extends BaseApiController
         ])
             ->withCount(['equipments', 'dailyReports']);
 
+        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
+            $query->whereIn('id', $allowedRigIds);
+        }
+
         if ($request->filled('status'))      $query->where('status', $request->status);
         if ($request->filled('location_id')) $query->where('location_id', $request->location_id);
 
@@ -84,26 +88,32 @@ class RigController extends BaseApiController
     }
 
 
-    public function show(Rig $rig): JsonResponse
+    public function show(Rig $rig, Request $request): JsonResponse
     {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($rig->id)) {
+            return $this->forbidden('You are not authorized to view this rig');
+        }
+
         $rig->load([
             'location:id,name,state',
             'manager:id,full_name,email',
             'equipments:id,current_rig_id,name,marque,serial_number,hours_of_operation,status',
             'drillingTools.toolType:id,name',
             'rigMaterials.materialType:id,name,unit',
-            'shifts' => fn($q) => $q
-                ->whereDate('date', today())
-                ->with(['employees:id,full_name,position_id', 'employees.position:id,name']),
         ]);
 
-        // Recent daily reports (last 10 for the timeline table)
+        // ← جلب الـ shifts عبر تقرير اليوم
+        $todayReport = DailyReport::where('rig_id', $rig->id)
+            ->whereDate('report_date', today())
+            ->with(['shifts.employees:id,full_name,position_id', 'shifts.employees.position:id,name'])
+            ->first();
+
         $recentReports = DailyReport::forRig($rig->id)
             ->latest('report_date')
             ->limit(10)
             ->get(['id', 'report_date', 'depth_end', 'daily_progress', 'incidents', 'npt_hours']);
 
-        // Depth progress timeline (for the chart: last 14 days)
         $depthTimeline = DailyReport::forRig($rig->id)
             ->where('report_date', '>=', now()->subDays(14))
             ->orderBy('report_date')
@@ -113,16 +123,18 @@ class RigController extends BaseApiController
                 'depth' => (float) $r->depth_end,
             ]);
 
-        // Today's crew from active shifts
+        // ← Crew من شifts تقرير اليوم
         $crew = collect();
-        foreach ($rig->shifts as $shift) {
-            foreach ($shift->employees as $emp) {
-                $crew->push([
-                    'id'       => $emp->id,
-                    'name'     => $emp->full_name,
-                    'position' => $emp->position?->name,
-                    'shift'    => ucfirst($shift->periode),
-                ]);
+        if ($todayReport) {
+            foreach ($todayReport->shifts as $shift) {
+                foreach ($shift->employees as $emp) {
+                    $crew->push([
+                        'id'       => $emp->id,
+                        'name'     => $emp->full_name,
+                        'position' => $emp->position?->name,
+                        'shift'    => ucfirst($shift->post), // ← post بدل periode
+                    ]);
+                }
             }
         }
 
@@ -139,21 +151,21 @@ class RigController extends BaseApiController
                 'end_date',
                 'notes'
             ]), [
-                'location'           => $rig->location?->name,
-                'manager'            => $rig->manager?->full_name,
+                'location'            => $rig->location?->name,
+                'manager'             => $rig->manager?->full_name,
                 'progress_percentage' => $rig->progress_percentage,
-                'days_remaining'     => $rig->days_remaining,
+                'days_remaining'      => $rig->days_remaining,
             ]),
             'equipments'     => $rig->equipments,
             'drilling_tools' => $rig->drillingTools,
             'materials'      => $rig->rigMaterials->map(fn($m) => [
-                'id'       => $m->id,
-                'name'     => $m->materialType?->name,
-                'unit'     => $m->materialType?->unit,
-                'quantity' => (float) $m->quantity,
-                'capacity' => (float) $m->capacity,
+                'id'                => $m->id,
+                'name'              => $m->materialType?->name,
+                'unit'              => $m->materialType?->unit,
+                'quantity'          => (float) $m->quantity,
+                'capacity'          => (float) $m->capacity,
                 'filled_percentage' => $m->filled_percentage,
-                'is_low'   => $m->isLow(),
+                'is_low'            => $m->isLow(),
             ]),
             'crew'           => $crew->unique('id')->values(),
             'recent_reports' => $recentReports,
