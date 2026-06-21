@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Report;
 
+use App\Models\RigMaterial;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDailyReportRequest extends FormRequest
@@ -46,6 +47,21 @@ class UpdateDailyReportRequest extends FormRequest
             'shifts.*.mud.viscosity'            => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
             'shifts.*.mud.ph'                   => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
             'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+
+            'materials.*.rig_material_id' => [
+                'required',
+                'exists:rig_materials,id',
+                function ($attribute, $value, $fail) {
+                    $report = $this->route('daily_report');
+                    $belongsToRig = RigMaterial::where('id', $value)
+                        ->where('rig_id', $report->rig_id)
+                        ->exists();
+
+                    if (!$belongsToRig) {
+                        $fail('This material does not belong to this report\'s rig.');
+                    }
+                },
+            ],
         ];
     }
 }

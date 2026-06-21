@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Report;
 
+use App\Models\RigMaterial;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -38,31 +39,43 @@ class StoreDailyReportRequest extends FormRequest
             'tools.*.total_length'     => ['required', 'numeric', 'min:0'],
 
             // Equipment
-            'equipments'                => ['nullable', 'array'],
-            'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
-            'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
-            'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'], 
+            'equipments'                  => ['nullable', 'array'],
+            'equipments.*.equipment_id'   => ['required', 'exists:equipments,id'],
+            'equipments.*.status'         => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
+            'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'],
 
-            // Shifts — يُنشأ مع التقرير مباشرة
-            'shifts'                          => ['nullable', 'array', 'max:2'],
+            // Shifts
+            'shifts'                            => ['nullable', 'array', 'max:2'],
             'shifts.*.post'                     => ['required', 'in:post_1,post_2'],
-            'shifts.*.start_time' => ['required', 'date_format:H:i'],
-            'shifts.*.end_time'   => ['required', 'date_format:H:i'],
-            'shifts.*.employees'              => ['nullable', 'array'],
-            'shifts.*.employees.*.employee_id' => ['required', 'exists:employees,id'],
-            'shifts.*.employees.*.function'   => ['nullable', 'string', 'max:100'],
-            'shifts.*.employees.*.status'     => ['nullable', 'in:onsite,onBase,onLeave'],
-            'shifts.*.mud'              => ['nullable', 'array'],
-            'shifts.*.mud.density'      => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
-            'shifts.*.mud.viscosity'    => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
-            'shifts.*.mud.ph'           => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
-            'shifts.*.mud.filtra'       => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.start_time'               => ['required', 'date_format:H:i'],
+            'shifts.*.end_time'                 => ['required', 'date_format:H:i'],
+            'shifts.*.employees'                => ['nullable', 'array'],
+            'shifts.*.employees.*.employee_id'  => ['required', 'exists:employees,id'],
+            'shifts.*.employees.*.function'     => ['nullable', 'string', 'max:100'],
+            'shifts.*.employees.*.status'       => ['nullable', 'in:onsite,onBase,onLeave'],
+            'shifts.*.mud'                      => ['nullable', 'array'],
+            'shifts.*.mud.density'              => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.mud.viscosity'            => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+            'shifts.*.mud.ph'                   => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
+            'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
 
-            // Materials
+            // Materials — مقيّدة بـ rig_id لهذا التقرير
             'materials'                   => ['nullable', 'array'],
-            'materials.*.rig_material_id' => ['required', 'exists:rig_materials,id'],
-            'materials.*.consumed'        => ['nullable', 'numeric', 'min:0'],
-            'materials.*.added'           => ['nullable', 'numeric', 'min:0'],
+            'materials.*.rig_material_id' => [
+                'required',
+                'exists:rig_materials,id',
+                function ($attribute, $value, $fail) {
+                    $belongsToRig = RigMaterial::where('id', $value)
+                        ->where('rig_id', $this->rig_id)
+                        ->exists();
+
+                    if (!$belongsToRig) {
+                        $fail('This material does not belong to the selected rig.');
+                    }
+                },
+            ],
+            'materials.*.consumed' => ['nullable', 'numeric', 'min:0'],
+            'materials.*.added'    => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
