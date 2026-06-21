@@ -12,8 +12,8 @@ class RestrictToOwnRig
     {
         $user = $request->user();
 
-        if ($user && $user->hasRole('Rig_manager')) {
-            $allowedRigIds = Rig::where('manager_id', $user->id)->pluck('id');
+        if ($user && $user->hasRole('Rig_Manager')) { // ← تأكد من الحروف الكبيرة بالضبط
+            $allowedRigIds = \App\Models\Rig::where('manager_id', $user->id)->pluck('id');
             $request->attributes->set('allowed_rig_ids', $allowedRigIds);
         }
 
