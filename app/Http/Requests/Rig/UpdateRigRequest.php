@@ -22,6 +22,7 @@ class UpdateRigRequest extends FormRequest
         return [
             'name'           => ['sometimes', 'string', 'max:255'],
             'code'           => ['sometimes', 'string', 'max:50', Rule::unique('rigs', 'code')->ignore($rigId)],
+            'photo'          => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'manager_id'     => ['nullable', 'exists:users,id'],
             'location_id'    => ['nullable', 'exists:locations,id'],
             'status'         => ['sometimes', Rule::in(Rig::STATUSES)],

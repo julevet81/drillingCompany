@@ -18,6 +18,7 @@ class Rig extends Model
         'name',
         'manager_id',
         'code',
+        'photo',
         'location_id',
         'status',
         'current_depth',
@@ -28,12 +29,19 @@ class Rig extends Model
         'notes'
     ];
 
+    protected $appends = ['photo_url'];
+
     protected $casts = [
         'current_depth' => 'decimal:2',
         'target_depth'  => 'decimal:2',
         'start_date'    => 'date',
         'end_date'      => 'date',
     ];
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo ? asset($this->photo) : null;
+    }
 
     public const STATUSES = [
         'drilling',

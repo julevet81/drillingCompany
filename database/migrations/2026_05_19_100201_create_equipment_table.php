@@ -17,13 +17,12 @@ return new class extends Migration
             $table->string('serial_number')->unique()->nullable();
             $table->string('photo')->nullable();
             $table->decimal('hours_of_operation')->nullable();
-            $table->enum('status', ['operational', 'maintenance', 'out_of_service'])->default('operational');
+            $table->enum('status', ['Operational', 'Maintenance', 'Out_of_Service'])->default('operational');
             $table->timestamps();
             $table->softDeletes();
 
             $table->index('current_rig_id');
         });
-
     }
 
     public function down(): void

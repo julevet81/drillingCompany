@@ -12,6 +12,7 @@ class StoreRigRequest extends FormRequest {
         return [
             'name'           => ['required','string','max:255'],
             'code'           => ['nullable','string','max:50','unique:rigs,code'],
+            'photo'          => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'manager_id'     => ['nullable','exists:users,id'],
             'location_id'    => ['nullable','exists:locations,id'],
             'status'         => ['nullable', Rule::in(Rig::STATUSES)],

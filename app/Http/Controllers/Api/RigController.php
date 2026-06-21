@@ -80,7 +80,16 @@ class RigController extends BaseApiController
     /** POST /api/rigs */
     public function store(StoreRigRequest $request): JsonResponse
     {
-        $rig = DB::transaction(fn () => Rig::create($request->validated()));
+        $data = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            $file     = $request->file('photo');
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/rigs'), $filename);
+            $data['photo'] = 'uploads/rigs/' . $filename;
+        }
+
+        $rig = DB::transaction(fn() => Rig::create($data));
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
@@ -176,7 +185,26 @@ class RigController extends BaseApiController
     /** PUT /api/rigs/{rig} */
     public function update(UpdateRigRequest $request, Rig $rig): JsonResponse
     {
-        DB::transaction(fn () => $rig->update($request->validated()));
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($rig->id)) {
+            return $this->forbidden('You are not authorized to update this rig');
+        }
+
+        $data = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            // حذف الصورة القديمة
+            if ($rig->photo && file_exists(public_path($rig->photo))) {
+                unlink(public_path($rig->photo));
+            }
+
+            $file     = $request->file('photo');
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/rigs'), $filename);
+            $data['photo'] = 'uploads/rigs/' . $filename;
+        }
+
+        DB::transaction(fn() => $rig->update($data));
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
@@ -184,8 +212,17 @@ class RigController extends BaseApiController
     }
 
     /** DELETE /api/rigs/{rig} */
-    public function destroy(Rig $rig): JsonResponse
+    public function destroy(Rig $rig, Request $request): JsonResponse
     {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($rig->id)) {
+            return $this->forbidden('You are not authorized to delete this rig');
+        }
+
+        if ($rig->photo && file_exists(public_path($rig->photo))) {
+            unlink(public_path($rig->photo));
+        }
+
         $rig->delete();
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
