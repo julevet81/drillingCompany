@@ -415,7 +415,19 @@ class DailyReportController extends BaseApiController
                 foreach ($request->materials as $m) {
                     $rigMaterial = RigMaterial::lockForUpdate()->findOrFail($m['rig_material_id']);
 
-                    $newQty = $rigMaterial->quantity
+                    // ← الخطوة 1: جلب اللوغ القديم لهذا rig_material في هذا التقرير (لو موجود)
+                    $oldLog = MaterialLog::where('report_id', $daily_report->id)
+                        ->where('rig_material_id', $rigMaterial->id)
+                        ->first();
+
+                    // ← الخطوة 2: عكس التأثير القديم على الكمية الحالية
+                    $baseQty = $rigMaterial->quantity;
+                    if ($oldLog) {
+                        $baseQty = $baseQty + $oldLog->consumed - $oldLog->added;
+                    }
+
+                    // ← الخطوة 3: تطبيق التأثير الجديد على القيمة المُعادة
+                    $newQty = $baseQty
                         - ($m['consumed'] ?? 0)
                         + ($m['added'] ?? 0);
 

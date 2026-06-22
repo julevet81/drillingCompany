@@ -25,8 +25,8 @@ class UpdateDailyReportRequest extends FormRequest
 
             'tools'                    => ['nullable', 'array'],
             'tools.*.drilling_tool_id' => ['required', 'exists:drilling_tools,id'],
-            'tools.*.quantity_used'    => ['sometimes', 'integer', 'min:0'],
-            'tools.*.total_length'     => ['sometimes', 'numeric', 'min:0'],
+            'tools.*.quantity_used'    => ['required', 'integer', 'min:0'],
+            'tools.*.total_length'     => ['required', 'numeric', 'min:0'],
 
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],

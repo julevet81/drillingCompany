@@ -18,6 +18,8 @@ return new class extends Migration
             $table->integer('quantity_used')->default(0);
             $table->decimal('total_length', 10, 2)->default(0);
             $table->timestamps();
+
+            $table->unique(['report_id', 'drilling_tool_id']);
         });
     }
 

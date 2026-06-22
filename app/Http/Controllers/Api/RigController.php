@@ -93,7 +93,7 @@ class RigController extends BaseApiController
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
-        return $this->created($rig->load('location:id,name,state', 'manager:id,full_name'), 'Rig created successfully');
+        return $this->created($rig->load('location:id,name,state', 'manager:id,full_name,photo'), 'Rig created successfully');
     }
 
 
@@ -106,16 +106,15 @@ class RigController extends BaseApiController
 
         $rig->load([
             'location:id,name,state',
-            'manager:id,full_name,email',
-            'equipments:id,current_rig_id,name,marque,serial_number,hours_of_operation,status',
+            'manager:id,full_name,email,photo',
+            'equipments:id,current_rig_id,name,marque,serial_number,photo,hours_of_operation,status', 
             'drillingTools.toolType:id,name',
             'rigMaterials.materialType:id,name,unit',
         ]);
 
-        // ← جلب الـ shifts عبر تقرير اليوم
         $todayReport = DailyReport::where('rig_id', $rig->id)
             ->whereDate('report_date', today())
-            ->with(['shifts.employees:id,full_name,position_id', 'shifts.employees.position:id,name'])
+            ->with(['shifts.employees:id,full_name,photo,position_id', 'shifts.employees.position:id,name'])
             ->first();
 
         $recentReports = DailyReport::forRig($rig->id)
@@ -132,7 +131,6 @@ class RigController extends BaseApiController
                 'depth' => (float) $r->depth_end,
             ]);
 
-        // ← Crew من شifts تقرير اليوم
         $crew = collect();
         if ($todayReport) {
             foreach ($todayReport->shifts as $shift) {
@@ -140,8 +138,9 @@ class RigController extends BaseApiController
                     $crew->push([
                         'id'       => $emp->id,
                         'name'     => $emp->full_name,
+                        'photo_url'=> $emp->photo_url,
                         'position' => $emp->position?->name,
-                        'shift'    => ucfirst($shift->post), // ← post بدل periode
+                        'shift'    => ucfirst($shift->post),
                     ]);
                 }
             }
@@ -208,7 +207,7 @@ class RigController extends BaseApiController
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 
-        return $this->success($rig->fresh('location:id,name,state', 'manager:id,full_name'), 'Rig updated');
+        return $this->success($rig->fresh('location:id,name,state', 'manager:id,full_name,photo'), 'Rig updated');
     }
 
     /** DELETE /api/rigs/{rig} */

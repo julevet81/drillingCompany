@@ -17,3 +17,17 @@ Route::get('/clear-cache', function () {
     Artisan::call('optimize:clear');
     return 'Cache cleared';
 });
+
+Route::get('/run-migrations', function () {
+    // ← حماية بسيطة بمفتاح سري
+    if (request('secret') !== env('MIGRATION_SECRET')) {
+        abort(403, 'Unauthorized');
+    }
+
+    Artisan::call('migrate', ['--force' => true]);
+
+    return response()->json([
+        'success' => true,
+        'output'  => Artisan::output(),
+    ]);
+});
