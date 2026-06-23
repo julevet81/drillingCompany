@@ -13,49 +13,88 @@ class DrillingToolController extends BaseApiController
     /** GET /api/drilling-tools */
     public function index(Request $request): JsonResponse
     {
-        $query = DrillingTool::with(['toolType', 'rig:id,name,code']);
-        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
-            $query->whereIn('id', $allowedRigIds);
+        $query = DrillingTool::with('toolType:id,name', 'rig:id,name,code');
+
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds) {
+            $query->whereIn('rig_id', $allowedRigIds);
         }
+
         if ($request->filled('rig_id'))       $query->where('rig_id', $request->rig_id);
         if ($request->filled('tool_type_id')) $query->where('tool_type_id', $request->tool_type_id);
-        return $this->success($query->get());
+
+        return $this->paginated($query->latest()->paginate($request->per_page ?? 20));
     }
 
     /** POST /api/drilling-tools */
     public function store(Request $request): JsonResponse
     {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+
         $data = $request->validate([
-            'tool_type_id'      => ['required', 'exists:tool_types,id'],
-            'name'              => ['nullable', 'string', 'max:255'],
-            'external_diameter' => ['nullable', 'string', 'max:50'],
-            'unit_length'       => ['nullable', 'numeric', 'min:0'],
-            'total_quantity'    => ['required', 'integer', 'min:0'],
-            'status'            => ['nullable', 'string'],
-            'rig_id'            => ['required', 'exists:rigs,id'],
+            'rig_id'             => $allowedRigIds
+                ? ['nullable'] // يُتجاهل ويُستبدل تلقائياً لو rig_manager
+                : ['required', 'exists:rigs,id'],
+            'tool_type_id'       => ['required', 'exists:tool_types,id'],
+            'name'                => ['nullable', 'string', 'max:255'],
+            'external_diameter'   => ['nullable', 'string', 'max:50'],
+            'unit_length'         => ['nullable', 'numeric', 'min:0'],
+            'total_quantity'      => ['nullable', 'integer', 'min:0'],
+            'status'              => ['nullable', 'string', 'max:50'],
         ]);
-        return $this->created(DrillingTool::create($data)->load('toolType'), 'Tool added');
+
+        if ($allowedRigIds) {
+            // rig_manager: يُفرض عليه الـ rig الخاص به دائماً
+            if ($allowedRigIds->count() > 1) {
+                // لو يدير أكثر من rig، يجب أن يحدد rig_id ضمن المسموح له
+                $request->validate([
+                    'rig_id' => ['required', 'exists:rigs,id'],
+                ]);
+                if (!$allowedRigIds->contains($request->rig_id)) {
+                    return $this->forbidden('You can only add tools to your assigned rig(s)');
+                }
+                $data['rig_id'] = $request->rig_id;
+            } else {
+                $data['rig_id'] = $allowedRigIds->first();
+            }
+        }
+
+        $tool = DrillingTool::create($data);
+
+        return $this->created($tool->load('toolType', 'rig:id,name,code'), 'Tool created');
     }
 
     /** PUT /api/drilling-tools/{drillingTool} */
     public function update(Request $request, DrillingTool $drillingTool): JsonResponse
     {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($drillingTool->rig_id)) {
+            return $this->forbidden('You are not authorized to update this tool');
+        }
+
         $data = $request->validate([
-            'tool_type_id'      => ['sometimes', 'exists:tool_types,id'],
             'name'              => ['nullable', 'string', 'max:255'],
             'external_diameter' => ['nullable', 'string', 'max:50'],
             'unit_length'       => ['nullable', 'numeric', 'min:0'],
-            'total_quantity'    => ['sometimes', 'integer', 'min:0'],
-            'status'            => ['nullable', 'string'],
+            'total_quantity'    => ['nullable', 'integer', 'min:0'],
+            'status'            => ['nullable', 'string', 'max:50'],
+            // rig_id غير قابل للتعديل بعد الإنشاء — نفس منطق daily_reports
         ]);
+
         $drillingTool->update($data);
-        return $this->success($drillingTool->fresh('toolType'), 'Tool updated');
+
+        return $this->success($drillingTool->fresh(['toolType', 'rig:id,name,code']), 'Tool updated');
     }
 
-    /** DELETE /api/drilling-tools/{drillingTool} */
-    public function destroy(DrillingTool $drillingTool): JsonResponse
+    public function destroy(DrillingTool $drillingTool, Request $request): JsonResponse
     {
-        $drillingTool->delete($drillingTool->id);
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($drillingTool->rig_id)) {
+            return $this->forbidden('You are not authorized to delete this tool');
+        }
+
+        $drillingTool->delete();
+
         return $this->success(null, 'Tool deleted');
     }
 

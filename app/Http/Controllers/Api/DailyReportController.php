@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Report\StoreDailyReportRequest;
 use App\Http\Requests\Report\UpdateDailyReportRequest;
 use App\Models\DailyReport;
-use App\Models\DailyReportTool;
 use App\Models\DailyReportEquipment;
+use App\Models\DailyReportTool;
+use App\Models\DrillingTool;
 use App\Models\Equipment;
 use App\Models\MaterialLog;
 use App\Models\Rig;
@@ -137,18 +138,28 @@ class DailyReportController extends BaseApiController
 
                 $report = DailyReport::create($data);
 
-                // BHA Tools
+                // BHA Tools — يستهلك من المخزون الكلي للأداة
                 if ($request->filled('tools')) {
-                    DailyReportTool::insert(
-                        collect($request->tools)->map(fn($t) => [
+                    foreach ($request->tools as $t) {
+                        $tool = DrillingTool::lockForUpdate()->findOrFail($t['drilling_tool_id']);
+
+                        $newQty = $tool->total_quantity - ($t['quantity_used'] ?? 0);
+
+                        if ($newQty < 0) {
+                            throw new \InvalidArgumentException(
+                                "Tool '{$tool->name}' stock insufficient (available: {$tool->total_quantity})."
+                            );
+                        }
+
+                        $tool->update(['total_quantity' => $newQty]);
+
+                        DailyReportTool::create([
                             'report_id'        => $report->id,
-                            'drilling_tool_id' => $t['drilling_tool_id'],
+                            'drilling_tool_id' => $tool->id,
                             'quantity_used'    => $t['quantity_used'] ?? 0,
                             'total_length'     => $t['total_length'] ?? 0,
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ])->toArray()
-                    );
+                        ]);
+                    }
                 }
 
                 // Equipments
