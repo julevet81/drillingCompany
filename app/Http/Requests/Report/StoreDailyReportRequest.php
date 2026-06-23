@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Report;
 
-use App\Models\DrillingTool;
 use App\Models\RigMaterial;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\DrillingTool;
 
 class StoreDailyReportRequest extends FormRequest
 {

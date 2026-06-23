@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\DrillingTool;
 use App\Models\DailyReportTool;
+use App\Models\DrillingTool;
+use App\Models\Rig;
 use App\Models\ToolType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,21 @@ class DrillingToolController extends BaseApiController
         if ($request->filled('tool_type_id')) $query->where('tool_type_id', $request->tool_type_id);
 
         return $this->paginated($query->latest()->paginate($request->per_page ?? 20));
+    }
+
+    /** GET /api/drilling-tools/by-rig/{rig} */
+    public function byRig(Rig $rig, Request $request): JsonResponse
+    {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($rig->id)) {
+            return $this->forbidden('You are not authorized to view tools for this rig');
+        }
+
+        $tools = DrillingTool::where('rig_id', $rig->id)
+            ->with('toolType:id,name')
+            ->get();
+
+        return $this->success($tools);
     }
 
     /** POST /api/drilling-tools */

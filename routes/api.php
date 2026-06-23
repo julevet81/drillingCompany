@@ -80,8 +80,8 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
 
     // ── Daily Reports ─────────────────────────────────────────────────
     // Static routes first — then apiResource
-    Route::get('daily-reports/summary',            [DailyReportController::class, 'summary'])->middleware('role:Super_Admin');
-    Route::get('daily-reports/last/{rig}',         [DailyReportController::class, 'lastForRig']);
+    Route::get('daily-reports/summary',             [DailyReportController::class, 'summary'])->middleware('role:Super_Admin');
+    Route::get('daily-reports/last/{rig}',          [DailyReportController::class, 'lastForRig']);
     Route::patch('daily-reports/{report}/submit',   [DailyReportController::class, 'submit']);
     Route::patch('daily-reports/{report}/approve',  [DailyReportController::class, 'approve'])
         ->middleware('role:Super_Admin');
@@ -90,6 +90,7 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
     // ── BHA / Drilling Tools ──────────────────────────────────────────
     Route::get('tool-types',                        [DrillingToolController::class, 'toolTypes']);
     Route::get('drilling-tools/bha/{reportId}',     [DrillingToolController::class, 'bhaForReport']);
+    Route::get('drilling-tools/by-rig/{rig}',       [DrillingToolController::class, 'byRig']);
     Route::apiResource('drilling-tools', DrillingToolController::class)->except(['show']);
 
     // ── Materials & Fuel ──────────────────────────────────────────────
