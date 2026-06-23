@@ -361,17 +361,40 @@ class DailyReportController extends BaseApiController
             $daily_report->update($data);
 
             if ($request->filled('tools')) {
-                $daily_report->tools()->delete();
-                DailyReportTool::insert(
-                    collect($request->tools)->map(fn($t) => [
-                        'report_id'        => $daily_report->id,
-                        'drilling_tool_id' => $t['drilling_tool_id'],
-                        'quantity_used'    => $t['quantity_used'] ?? 0,
-                        'total_length'     => $t['total_length'] ?? 0,
-                        'created_at'       => now(),
-                        'updated_at'       => now(),
-                    ])->toArray()
-                );
+                foreach ($request->tools as $t) {
+                    $tool = DrillingTool::lockForUpdate()->findOrFail($t['drilling_tool_id']);
+
+                    // عكس التأثير القديم لو كان مسجَّلاً مسبقاً لهذا التقرير
+                    $oldTool = DailyReportTool::where('report_id', $daily_report->id)
+                        ->where('drilling_tool_id', $tool->id)
+                        ->first();
+
+                    $baseQty = $tool->total_quantity;
+                    if ($oldTool) {
+                        $baseQty += $oldTool->quantity_used;
+                    }
+
+                    $newQty = $baseQty - ($t['quantity_used'] ?? 0);
+
+                    if ($newQty < 0) {
+                        throw new \InvalidArgumentException(
+                            "Tool '{$tool->name}' stock insufficient (available: {$baseQty})."
+                        );
+                    }
+
+                    $tool->update(['total_quantity' => $newQty]);
+
+                    DailyReportTool::updateOrCreate(
+                        [
+                            'report_id'        => $daily_report->id,
+                            'drilling_tool_id' => $tool->id,
+                        ],
+                        [
+                            'quantity_used' => $t['quantity_used'] ?? 0,
+                            'total_length'  => $t['total_length'] ?? 0,
+                        ]
+                    );
+                }
             }
 
             // ← مفقود سابقاً: تحديث equipments
