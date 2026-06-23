@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Shift extends Model
 {
-    protected $fillable = ['report_id', 'post', 'start_time', 'end_time'];
+    protected $fillable = ['report_id', 'post', 'start_time', 'end_time', 'description', 'lithologie'];
 
     protected $casts = [
         'start_time' => 'datetime:H:i',

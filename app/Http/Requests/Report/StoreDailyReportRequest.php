@@ -49,6 +49,8 @@ class StoreDailyReportRequest extends FormRequest
             'shifts.*.post'                     => ['required', 'in:post_1,post_2'],
             'shifts.*.start_time'               => ['required', 'date_format:H:i'],
             'shifts.*.end_time'                 => ['required', 'date_format:H:i'],
+            'shifts.*.description'              => ['nullable', 'string', 'max:2000'],
+            'shifts.*.lithologie'               => ['nullable', 'string', 'max:255'],
             'shifts.*.employees'                => ['nullable', 'array'],
             'shifts.*.employees.*.employee_id'  => ['required', 'exists:employees,id'],
             'shifts.*.employees.*.function'     => ['nullable', 'string', 'max:100'],
@@ -58,6 +60,7 @@ class StoreDailyReportRequest extends FormRequest
             'shifts.*.mud.viscosity'            => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
             'shifts.*.mud.ph'                   => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
             'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
+
 
             // Materials — مقيّدة بـ rig_id لهذا التقرير
             'materials'                   => ['nullable', 'array'],

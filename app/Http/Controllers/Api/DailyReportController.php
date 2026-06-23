@@ -177,6 +177,8 @@ class DailyReportController extends BaseApiController
                             'post'       => $shiftData['post'],
                             'start_time' => $shiftData['start_time'],
                             'end_time'   => $shiftData['end_time'],
+                            'description' => $shiftData['description'] ?? null,
+                            'lithologie'  => $shiftData['lithologie'] ?? null,
                         ]);
 
                         if (!empty($shiftData['employees'])) {
@@ -382,6 +384,8 @@ class DailyReportController extends BaseApiController
                         [
                             'start_time' => $shiftData['start_time'],
                             'end_time'   => $shiftData['end_time'],
+                            'description' => $shiftData['description'] ?? null,
+                            'lithologie'  => $shiftData['lithologie'] ?? null,
                         ]
                     );
 
