@@ -91,6 +91,7 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
     Route::get('tool-types',                        [DrillingToolController::class, 'toolTypes']);
     Route::get('drilling-tools/bha/{reportId}',     [DrillingToolController::class, 'bhaForReport']);
     Route::get('drilling-tools/by-rig/{rig}',       [DrillingToolController::class, 'byRig']);
+    Route::post('drilling-tools/{drillingTool}/add-stock', [DrillingToolController::class, 'addStock']);
     Route::apiResource('drilling-tools', DrillingToolController::class)->except(['show']);
 
     // ── Materials & Fuel ──────────────────────────────────────────────

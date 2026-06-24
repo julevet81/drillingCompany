@@ -138,4 +138,25 @@ class DrillingToolController extends BaseApiController
             'total_bha' => round($tools->sum('length_m'), 2),
         ]);
     }
+
+    public function addStock(Request $request, DrillingTool $drillingTool): JsonResponse
+    {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($drillingTool->rig_id)) {
+            return $this->forbidden('You are not authorized to modify this tool');
+        }
+
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $drillingTool->increment('total_quantity', $data['quantity']);
+
+        return $this->success(
+            $drillingTool->fresh(['toolType', 'rig:id,name,code']),
+            'Stock added successfully'
+        );
+    }
+
 }

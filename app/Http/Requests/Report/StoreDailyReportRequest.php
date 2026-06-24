@@ -34,21 +34,8 @@ class StoreDailyReportRequest extends FormRequest
             'notes'            => ['nullable', 'string', 'max:5000'],
 
             // BHA Tools
-            'tools'                    => ['nullable', 'array'],
-            'tools.*.drilling_tool_id' => [
-                'required',
-                'exists:drilling_tools,id',
-                'distinct',
-                function ($attribute, $value, $fail) {
-                    $belongsToRig = DrillingTool::where('id', $value)
-                        ->where('rig_id', $this->rig_id)
-                        ->exists();
-
-                    if (!$belongsToRig) {
-                        $fail('This tool does not belong to the selected rig.');
-                    }
-                },
-            ],
+            'tools'                     => ['nullable', 'array'],
+            'tools.*.drilling_tool_id'  => ['required', 'exists:drilling_tools,id'],
             'tools.*.quantity_used'     => ['required', 'integer', 'min:0'],
             'tools.*.total_length'      => ['required', 'numeric', 'min:0'],
             
