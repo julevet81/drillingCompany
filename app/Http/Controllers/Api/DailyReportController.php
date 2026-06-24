@@ -172,11 +172,15 @@ class DailyReportController extends BaseApiController
                             'hours_used'   => $e['hours_used'] ?? 0,
                         ]);
 
-                        // تحديث الساعات الكلية للمعدة
                         if (!empty($e['hours_used'])) {
                             Equipment::where('id', $e['equipment_id'])
                                 ->increment('hours_of_operation', $e['hours_used']);
                         }
+
+                        // ← تحديث موقع المعدة الحالي ليطابق هذا الـ rig
+                        Equipment::where('id', $e['equipment_id'])
+                            ->where('current_rig_id', '!=', $report->rig_id)
+                            ->update(['current_rig_id' => $report->rig_id]);
                     }
                 }
 

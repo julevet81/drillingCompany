@@ -2,10 +2,11 @@
 
 namespace App\Http\Requests\Report;
 
+
 use App\Models\RigMaterial;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use App\Models\DrillingTool;
 
 class StoreDailyReportRequest extends FormRequest
 {
@@ -54,7 +55,24 @@ class StoreDailyReportRequest extends FormRequest
             'shifts.*.description'              => ['nullable', 'string', 'max:2000'],
             'shifts.*.lithologie'               => ['nullable', 'string', 'max:255'],
             'shifts.*.employees'                => ['nullable', 'array'],
-            'shifts.*.employees.*.employee_id'  => ['required', 'exists:employees,id'],
+            'shifts.*.employees.*.employee_id' => [
+                'required',
+                'exists:employees,id',
+                function ($attribute, $value, $fail) {
+                    $conflict = DB::table('employee_shifts')
+                        ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                        ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                        ->where('employee_shifts.employee_id', $value)
+                        ->whereDate('daily_reports.report_date', $this->report_date)
+                        ->where('daily_reports.rig_id', '!=', $this->rig_id)
+                        ->select('daily_reports.rig_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $fail("Employee #{$value} is already assigned to rig #{$conflict->rig_id} on this date.");
+                    }
+                },
+            ],
             'shifts.*.employees.*.function'     => ['nullable', 'string', 'max:100'],
             'shifts.*.employees.*.status'       => ['nullable', 'in:onsite,onBase,onLeave'],
             'shifts.*.mud'                      => ['nullable', 'array'],
