@@ -13,13 +13,18 @@ class Employee extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['full_name', 'photo', 'position_id'];
+    protected $fillable = ['full_name', 'photo', 'position_id', 'rig_id'];
 
     protected $appends = ['photo_url'];
 
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class);
+    }
+
+    public function rig(): BelongsTo
+    {
+        return $this->belongsTo(Rig::class);
     }
 
     public function getPhotoUrlAttribute(): ?string

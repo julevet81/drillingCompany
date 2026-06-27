@@ -8,6 +8,7 @@ use App\Models\DailyReport;
 use App\Models\DailyReportEquipment;
 use App\Models\DailyReportTool;
 use App\Models\DrillingTool;
+use App\Models\Employee;
 use App\Models\Equipment;
 use App\Models\MaterialLog;
 use App\Models\Rig;
@@ -205,6 +206,8 @@ class DailyReportController extends BaseApiController
                                     ],
                                 ])->toArray()
                             );
+
+                            $this->updateEmployeesCurrentRig($shiftData['employees'], $report);
                         }
 
                         if (!empty($shiftData['mud'])) {
@@ -436,6 +439,8 @@ class DailyReportController extends BaseApiController
                                 ],
                             ])->toArray()
                         );
+
+                        $this->updateEmployeesCurrentRig($shiftData['employees'], $daily_report);
                     }
 
                     if (!empty($shiftData['mud'])) {
@@ -540,5 +545,22 @@ class DailyReportController extends BaseApiController
         }
         $report->update(['status' => 'approved']);
         return $this->success($report->only(['id', 'status']), 'Report approved');
+    }
+
+    private function updateEmployeesCurrentRig(array $employees, DailyReport $report): void
+    {
+        $employeeIds = collect($employees)->pluck('employee_id');
+
+        foreach ($employeeIds as $empId) {
+            $latestReportDate = DB::table('employee_shifts')
+                ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                ->where('employee_shifts.employee_id', $empId)
+                ->max('daily_reports.report_date');
+
+            if (!$latestReportDate || $report->report_date >= $latestReportDate) {
+                Employee::where('id', $empId)->update(['rig_id' => $report->rig_id]);
+            }
+        }
     }
 }

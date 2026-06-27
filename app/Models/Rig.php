@@ -69,6 +69,11 @@ class Rig extends Model
         return $this->hasMany(Equipment::class, 'current_rig_id');
     }
 
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
+
     public function drillingTools(): HasMany
     {
         return $this->hasMany(DrillingTool::class);
