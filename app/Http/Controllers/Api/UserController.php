@@ -194,4 +194,23 @@ class UserController extends BaseApiController
             'user' => $user->fresh('roles')
         ], 'Role assigned successfully');
     }
+
+    public function removeRole(Request $request, User $user): JsonResponse
+    {
+        $request->validate([
+            'role_id' => ['required', 'exists:roles,id']
+        ]);
+
+        $role = Role::find($request->role_id);
+
+        if (!$user->hasRole($role)) {
+            return $this->error('User does not have this role.', 422);
+        }
+
+        $user->removeRole($role);
+
+        return $this->success([
+            'user' => $user->fresh('roles')
+        ], 'Role removed successfully');
+    }
 }

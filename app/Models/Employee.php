@@ -43,8 +43,9 @@ class Employee extends Model
     public function todayShift()
     {
         return $this->shifts()
-            ->whereDate('shifts.date', today())
-            ->latest('shifts.date')
+            ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+            ->whereDate('daily_reports.report_date', today())
+            ->orderByDesc('daily_reports.report_date')
             ->first();
     }
 }

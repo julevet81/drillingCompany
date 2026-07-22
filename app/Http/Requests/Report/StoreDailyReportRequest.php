@@ -99,9 +99,10 @@ class StoreDailyReportRequest extends FormRequest
             ],
             'materials.*.consumed' => ['nullable', 'numeric', 'min:0'],
             'materials.*.added'    => ['nullable', 'numeric', 'min:0'],
+            'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped'],
+            'rig_notes' => ['nullable', 'string', 'max:5000'],
         ];
     }
-
     public function messages(): array
     {
         return [

@@ -12,16 +12,16 @@ class StoreEquipmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'current_rig_id' => ['nullable', 'exists:rigs,id'],
-            'name'           => ['required', 'string', 'max:255'],
-            'marque'         => ['nullable', 'string', 'max:100'],
-            'serial_number'  => ['nullable', 'string', 'max:100', 'unique:equipments,serial_number'],
-            'photo'          => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
-            'image'          => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
-            'avatar'         => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
-            'file'           => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'current_rig_id'     => ['nullable', 'exists:rigs,id'],
+            'name'               => ['required', 'string', 'max:255'],
+            'marque'             => ['nullable', 'string', 'max:100'],
+            'serial_number'      => ['nullable', 'string', 'max:100', 'unique:equipments,serial_number'],
+            'photo'              => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'image'              => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'avatar'             => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
+            'file'               => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'hours_of_operation' => ['nullable', 'numeric'],
-            'status'         => ['sometimes', Rule::in(['Operational', 'Maintenance', 'Out_of_Service'])],
+            'status'             => ['sometimes', Rule::in(['Operational', 'Maintenance', 'Out_of_Service'])],
         ];
     }
 }

@@ -17,6 +17,7 @@ use App\Models\Shift;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DailyReportController extends BaseApiController
@@ -34,7 +35,7 @@ class DailyReportController extends BaseApiController
         ])->withCount(['tools', 'reportEquipments', 'shifts']);
 
         if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
-        $query->whereIn('id', $allowedRigIds);
+            $query->whereIn('id', $allowedRigIds);
         }
 
         if ($request->filled('date'))   $query->whereDate('report_date', $request->date);
@@ -64,8 +65,8 @@ class DailyReportController extends BaseApiController
                     'photo_url'  => $emp->photo ? asset($emp->photo) : null,
                     'function'   => $emp->pivot->function ?? null,
                     'status'     => $emp->pivot->status ?? null,
-                    'shift'      => $shift->post,        
-                    'start_time' => $shift->start_time,  
+                    'shift'      => $shift->post,
+                    'start_time' => $shift->start_time,
                     'end_time'   => $shift->end_time,
                 ]))
                 ->unique('id')
@@ -131,9 +132,15 @@ class DailyReportController extends BaseApiController
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
     {
+        if ($request->filled('rig_status')) {
+            $request->validate([
+                'rig_status' => ['in:' . implode(',', Rig::STATUSES)],
+            ]);
+        }
+
         try {
             $report = DB::transaction(function () use ($request) {
-                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'rig_notes']);
                 $data['created_by']     = $request->user()->id;
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
 
@@ -249,7 +256,14 @@ class DailyReportController extends BaseApiController
                     }
                 }
 
-                $report->rig->update(['current_depth' => $data['depth_end']]);
+                $rigUpdate = ['current_depth' => $data['depth_end']];
+                if ($request->filled('rig_status')) {
+                    $rigUpdate['status'] = $request->rig_status;
+                }
+                if ($request->filled('rig_notes')) {
+                    $rigUpdate['notes'] = $request->rig_notes;
+                }
+                $report->rig->update($rigUpdate);
 
                 return $report;
             });
@@ -258,6 +272,11 @@ class DailyReportController extends BaseApiController
                 return $this->error('A report for this rig and date already exists.', 422);
             }
             throw $e;
+        }
+
+        if ($request->filled('rig_status')) {
+            Cache::forget('dashboard:stats');
+            Cache::forget('rigs:stats');
         }
 
         return $this->created(
@@ -310,40 +329,40 @@ class DailyReportController extends BaseApiController
     /** GET /api/daily-reports/last/{rig} */
     /** GET /api/daily-reports/last/{rig} */
     public function lastForRig(Rig $rig): JsonResponse
-    {   
-    $report = DailyReport::where('rig_id', $rig->id)
-        ->latest('report_date')
-        ->with([
-            'rig:id,name,code',
-            'author:id,full_name',
-            'tools.drillingTool.toolType:id,name',
-            'reportEquipments.equipment:id,name,serial_number,status',
-            'shifts.employees:id,full_name,photo,position_id',
-            'shifts.employees.position:id,name',
-            'shifts.mudCharacteristic',
-            'materialLogs.rigMaterial.materialType:id,name,unit',
-        ])
-        ->first();
-    
-    if (!$report) {
-        return $this->error('No reports found for this rig.', 404);
-    }
-    
-    $employees = $report->shifts
-        ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
-            'id'         => $emp->id,
-            'name'       => $emp->full_name,
-            'position'   => $emp->position?->name,
-            'photo_url'  => $emp->photo ? asset($emp->photo) : null,
-            'function'   => $emp->pivot->function ?? null,
-            'status'     => $emp->pivot->status ?? null,
-            'shift'      => $shift->post,
-            'start_time' => $shift->start_time,
-            'end_time'   => $shift->end_time,
-        ]))
-        ->unique('id')
-        ->values();
-    
+    {
+        $report = DailyReport::where('rig_id', $rig->id)
+            ->latest('report_date')
+            ->with([
+                'rig:id,name,code',
+                'author:id,full_name',
+                'tools.drillingTool.toolType:id,name',
+                'reportEquipments.equipment:id,name,serial_number,status',
+                'shifts.employees:id,full_name,photo,position_id',
+                'shifts.employees.position:id,name',
+                'shifts.mudCharacteristic',
+                'materialLogs.rigMaterial.materialType:id,name,unit',
+            ])
+            ->first();
+
+        if (!$report) {
+            return $this->error('No reports found for this rig.', 404);
+        }
+
+        $employees = $report->shifts
+            ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
+                'id'         => $emp->id,
+                'name'       => $emp->full_name,
+                'position'   => $emp->position?->name,
+                'photo_url'  => $emp->photo ? asset($emp->photo) : null,
+                'function'   => $emp->pivot->function ?? null,
+                'status'     => $emp->pivot->status ?? null,
+                'shift'      => $shift->post,
+                'start_time' => $shift->start_time,
+                'end_time'   => $shift->end_time,
+            ]))
+            ->unique('id')
+            ->values();
+
         return $this->success(array_merge($report->toArray(), [
             'total_bha_length' => $report->total_bha_length,
             'workers_count'    => $employees->count(),
@@ -358,14 +377,31 @@ class DailyReportController extends BaseApiController
             return $this->error('Only draft reports can be edited', 422);
         }
 
+        if ($request->filled('rig_status')) {
+            $request->validate([
+                'rig_status' => ['in:' . implode(',', Rig::STATUSES)],
+            ]);
+        }
+
         DB::transaction(function () use ($request, $daily_report) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials']);
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'rig_notes']);
 
             if (isset($data['depth_start'], $data['depth_end'])) {
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
             }
 
             $daily_report->update($data);
+
+            $rigUpdate = [];
+            if ($request->filled('rig_status')) {
+                $rigUpdate['status'] = $request->rig_status;
+            }
+            if ($request->filled('rig_notes')) {
+                $rigUpdate['notes'] = $request->rig_notes;
+            }
+            if (!empty($rigUpdate)) {
+                $daily_report->rig->update($rigUpdate);
+            }
 
             if ($request->filled('tools')) {
                 foreach ($request->tools as $t) {
@@ -502,6 +538,11 @@ class DailyReportController extends BaseApiController
             }
         });
 
+        if ($request->filled('rig_status')) {
+            Cache::forget('dashboard:stats');
+            Cache::forget('rigs:stats');
+        }
+
         return $this->success(
             $daily_report->fresh([
                 'tools',
@@ -509,6 +550,7 @@ class DailyReportController extends BaseApiController
                 'shifts.employees',
                 'shifts.mudCharacteristic',
                 'materialLogs',
+                'rig:id,name,code,status',
             ]),
             'Report updated'
         );
