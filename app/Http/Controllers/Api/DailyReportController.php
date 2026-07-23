@@ -26,7 +26,7 @@ class DailyReportController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $query = DailyReport::with([
-            'rig:id,name,code',
+            'rig:id,name,code,status,notes',
             'author:id,full_name',
             'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
             'shifts.employees:id,full_name,photo,position_id',
@@ -285,7 +285,7 @@ class DailyReportController extends BaseApiController
                 'reportEquipments.equipment',
                 'shifts.employees',
                 'shifts.mudCharacteristic',
-                'rig:id,name,code',
+                'rig:id,name,code,status,notes',
             ])->append('previous_report'),
             'Daily report created'
         );
@@ -295,7 +295,7 @@ class DailyReportController extends BaseApiController
     public function show(DailyReport $daily_report): JsonResponse
     {
         $daily_report->load([
-            'rig:id,name,code,location_id',
+            'rig:id,name,code,location_id,status,notes',
             'rig.location:id,name',
             'author:id,full_name',
             'tools.drillingTool.toolType:id,name',
@@ -333,7 +333,7 @@ class DailyReportController extends BaseApiController
         $report = DailyReport::where('rig_id', $rig->id)
             ->latest('report_date')
             ->with([
-                'rig:id,name,code',
+                'rig:id,name,code,status,notes',
                 'author:id,full_name',
                 'tools.drillingTool.toolType:id,name',
                 'reportEquipments.equipment:id,name,serial_number,status',
@@ -550,7 +550,7 @@ class DailyReportController extends BaseApiController
                 'shifts.employees',
                 'shifts.mudCharacteristic',
                 'materialLogs',
-                'rig:id,name,code,status',
+                'rig:id,name,code,status,notes',
             ]),
             'Report updated'
         );
