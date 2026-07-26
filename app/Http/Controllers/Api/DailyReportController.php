@@ -45,6 +45,10 @@ class DailyReportController extends BaseApiController
             $query->whereBetween('report_date', [$request->from, $request->to]);
         }
 
+        if ($request->filled('rig_id')) {
+            $query->where('rig_id', $request->rig_id);
+        }
+
         $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
 
         $reports->getCollection()->transform(function (DailyReport $report) {
@@ -604,5 +608,41 @@ class DailyReportController extends BaseApiController
                 Employee::where('id', $empId)->update(['rig_id' => $report->rig_id]);
             }
         }
+    }
+
+    /** GET /api/daily-reports/by-rig/{rig} */
+    public function forRig(Rig $rig, Request $request): JsonResponse
+    {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($rig->id)) {
+            return $this->forbidden('You are not authorized to view reports for this rig');
+        }
+
+        $query = DailyReport::where('rig_id', $rig->id)
+            ->with([
+                'rig:id,name,code,status,notes',
+                'author:id,full_name',
+                'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
+                'shifts.employees:id,full_name,photo,position_id',
+                'shifts.employees.position:id,name',
+                'shifts.mudCharacteristic',
+            ])
+            ->withCount(['tools', 'reportEquipments', 'shifts']);
+
+        if ($request->filled('date'))   $query->whereDate('report_date', $request->date);
+        if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('report_date', [$request->from, $request->to]);
+        }
+
+        $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
+
+        // نفس الـ transform الموجود في index (equipments_list, employees_list)
+        $reports->getCollection()->transform(function (DailyReport $report) {
+            // ... انسخ من index
+            return $report;
+        });
+
+        return $this->paginated($reports);
     }
 }
