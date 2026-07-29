@@ -26,7 +26,6 @@ class DailyReportFactory extends Factory
             'depth_start' => $depthStart,
             'depth_end' => $depthEnd,
             'daily_progress' => $depthEnd - $depthStart,
-            'workers_count' => fake()->numberBetween(10, 40),
             'fuel_consumption' => fake()->numberBetween(100, 600),
             'incidents' => fake()->numberBetween(0, 2),
             'npt_hours' => fake()->randomFloat(2, 0, 8),

@@ -72,6 +72,7 @@ class UpdateDailyReportRequest extends FormRequest
             'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
 
             'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped'],
+            'drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig_notes' => ['nullable', 'string', 'max:5000'],
 
             'materials.*.rig_material_id' => [

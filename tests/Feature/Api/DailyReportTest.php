@@ -63,6 +63,46 @@ class DailyReportTest extends TestCase
             ->assertJsonPath('data.daily_progress', '180.00');
     }
 
+    public function test_can_update_rig_drilling_phase_when_creating_daily_report(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/daily-reports', [
+                'rig_id'         => $this->rig->id,
+                'report_date'    => today()->toDateString(),
+                'depth_start'    => 2000,
+                'depth_end'      => 2180,
+                'drilling_phase' => 'Drilling 8 1/2',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.rig.drilling_phase', 'Drilling 8 1/2');
+
+        $this->assertDatabaseHas('rigs', [
+            'id'             => $this->rig->id,
+            'drilling_phase' => 'Drilling 8 1/2',
+        ]);
+    }
+
+    public function test_can_update_rig_drilling_phase_when_editing_daily_report(): void
+    {
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'drilling_phase' => 'Casing 13 3/8',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.rig.drilling_phase', 'Casing 13 3/8');
+
+        $this->assertDatabaseHas('rigs', [
+            'id'             => $this->rig->id,
+            'drilling_phase' => 'Casing 13 3/8',
+        ]);
+    }
+
     public function test_duplicate_report_for_same_rig_date_is_rejected(): void
     {
         DailyReport::factory()->create([

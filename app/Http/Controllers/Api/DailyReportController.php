@@ -26,7 +26,7 @@ class DailyReportController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $query = DailyReport::with([
-            'rig:id,name,code,status,notes',
+            'rig:id,name,code,status,drilling_phase,notes',
             'author:id,full_name',
             'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
             'shifts.employees:id,full_name,photo,position_id',
@@ -144,7 +144,7 @@ class DailyReportController extends BaseApiController
 
         try {
             $report = DB::transaction(function () use ($request) {
-                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'rig_notes']);
+                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_notes']);
                 $data['created_by']     = $request->user()->id;
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
 
@@ -264,6 +264,9 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('rig_status')) {
                     $rigUpdate['status'] = $request->rig_status;
                 }
+                if ($request->filled('drilling_phase')) {
+                    $rigUpdate['drilling_phase'] = $request->drilling_phase;
+                }
                 if ($request->filled('rig_notes')) {
                     $rigUpdate['notes'] = $request->rig_notes;
                 }
@@ -278,7 +281,7 @@ class DailyReportController extends BaseApiController
             throw $e;
         }
 
-        if ($request->filled('rig_status')) {
+        if ($request->filled('rig_status') || $request->filled('drilling_phase')) {
             Cache::forget('dashboard:stats');
             Cache::forget('rigs:stats');
         }
@@ -289,7 +292,7 @@ class DailyReportController extends BaseApiController
                 'reportEquipments.equipment',
                 'shifts.employees',
                 'shifts.mudCharacteristic',
-                'rig:id,name,code,status,notes',
+                'rig:id,name,code,status,drilling_phase,notes',
             ])->append('previous_report'),
             'Daily report created'
         );
@@ -299,7 +302,7 @@ class DailyReportController extends BaseApiController
     public function show(DailyReport $daily_report): JsonResponse
     {
         $daily_report->load([
-            'rig:id,name,code,location_id,status,notes',
+            'rig:id,name,code,location_id,status,drilling_phase,notes',
             'rig.location:id,name',
             'author:id,full_name',
             'tools.drillingTool.toolType:id,name',
@@ -337,7 +340,7 @@ class DailyReportController extends BaseApiController
         $report = DailyReport::where('rig_id', $rig->id)
             ->latest('report_date')
             ->with([
-                'rig:id,name,code,status,notes',
+                'rig:id,name,code,status,drilling_phase,notes',
                 'author:id,full_name',
                 'tools.drillingTool.toolType:id,name',
                 'reportEquipments.equipment:id,name,serial_number,status',
@@ -388,7 +391,7 @@ class DailyReportController extends BaseApiController
         }
 
         DB::transaction(function () use ($request, $daily_report) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'rig_notes']);
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_notes']);
 
             if (isset($data['depth_start'], $data['depth_end'])) {
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
@@ -399,6 +402,9 @@ class DailyReportController extends BaseApiController
             $rigUpdate = [];
             if ($request->filled('rig_status')) {
                 $rigUpdate['status'] = $request->rig_status;
+            }
+            if ($request->filled('drilling_phase')) {
+                $rigUpdate['drilling_phase'] = $request->drilling_phase;
             }
             if ($request->filled('rig_notes')) {
                 $rigUpdate['notes'] = $request->rig_notes;
@@ -542,7 +548,7 @@ class DailyReportController extends BaseApiController
             }
         });
 
-        if ($request->filled('rig_status')) {
+        if ($request->filled('rig_status') || $request->filled('drilling_phase')) {
             Cache::forget('dashboard:stats');
             Cache::forget('rigs:stats');
         }
@@ -554,7 +560,7 @@ class DailyReportController extends BaseApiController
                 'shifts.employees',
                 'shifts.mudCharacteristic',
                 'materialLogs',
-                'rig:id,name,code,status,notes',
+                'rig:id,name,code,status,drilling_phase,notes',
             ]),
             'Report updated'
         );
@@ -620,7 +626,7 @@ class DailyReportController extends BaseApiController
 
         $query = DailyReport::where('rig_id', $rig->id)
             ->with([
-                'rig:id,name,code,status,notes',
+                'rig:id,name,code,status,drilling_phase,notes',
                 'author:id,full_name',
                 'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
                 'shifts.employees:id,full_name,photo,position_id',

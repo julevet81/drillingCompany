@@ -19,7 +19,7 @@ class RigFactory extends Factory
             'name' => 'Rig ' . fake()->unique()->bothify('??-###'),
             'code' => fake()->unique()->bothify('RIG-###'),
             'location_id' => Location::factory(),
-            'status' => 'active',
+            'status' => 'drilling',
             'current_depth' => fake()->numberBetween(1000, 3000),
             'target_depth' => fake()->numberBetween(3500, 6000),
             'drilling_phase' => 'Drilling 8½"',
@@ -30,7 +30,7 @@ class RigFactory extends Factory
     public function active(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'active',
+            'status' => 'drilling',
         ]);
     }
 }
