@@ -38,6 +38,8 @@ class DailyReport extends Model
         'incidents'        => 'integer',
     ];
 
+    protected $appends = ['drilling_phase'];
+
     public const STATUSES = ['draft', 'submitted', 'approved'];
 
     // ─── Relationships ────────────────────────────────────────────────
@@ -95,6 +97,15 @@ class DailyReport extends Model
             ->where('report_date', '<', $this->report_date)
             ->orderByDesc('report_date')
             ->first();
+    }
+
+    public function getDrillingPhaseAttribute(): ?string
+    {
+        if (array_key_exists('drilling_phase', $this->attributes)) {
+            return $this->attributes['drilling_phase'];
+        }
+
+        return $this->rig?->drilling_phase;
     }
 
     // ─── Computed ─────────────────────────────────────────────────────
