@@ -38,7 +38,7 @@ class StoreDailyReportRequest extends FormRequest
             'tools'                     => ['nullable', 'array'],
             'tools.*.drilling_tool_id'  => ['required', 'exists:drilling_tools,id'],
             'tools.*.quantity_used'     => ['required', 'integer', 'min:0'],
-            'tools.*.total_length'      => ['required', 'numeric', 'min:0'],
+            'tools.*.total_length'      => ['nullable', 'numeric', 'min:0'],
             
 
             // Equipment

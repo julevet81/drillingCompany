@@ -120,7 +120,12 @@ class RigController extends BaseApiController
         $recentReports = DailyReport::forRig($rig->id)
             ->latest('report_date')
             ->limit(10)
-            ->get(['id', 'report_date', 'depth_end', 'daily_progress', 'incidents', 'npt_hours']);
+            ->get(['id', 'report_date', 'depth_end', 'daily_progress', 'incidents', 'npt_hours'])
+            ->map(function (DailyReport $report) use ($rig) {
+                $report->drilling_phase = $rig->drilling_phase;
+
+                return $report;
+            });
 
         $depthTimeline = DailyReport::forRig($rig->id)
             ->where('report_date', '>=', now()->subDays(14))

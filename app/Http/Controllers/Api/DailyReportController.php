@@ -52,6 +52,8 @@ class DailyReportController extends BaseApiController
         $reports = $query->latest('report_date')->paginate($request->per_page ?? 15);
 
         $reports->getCollection()->transform(function (DailyReport $report) {
+            $report->drilling_phase = $report->rig?->drilling_phase;
+
             $report->equipments_list = $report->reportEquipments->map(fn($re) => [
                 'id'            => $re->equipment?->id,
                 'name'          => $re->equipment?->name,
@@ -327,6 +329,7 @@ class DailyReportController extends BaseApiController
             ->values();
 
         return $this->success(array_merge($daily_report->toArray(), [
+            'drilling_phase'   => $daily_report->rig?->drilling_phase,
             'total_bha_length' => $daily_report->total_bha_length,
             'workers_count'    => $employees->count(),
             'employees'        => $employees,
@@ -371,6 +374,7 @@ class DailyReportController extends BaseApiController
             ->values();
 
         return $this->success(array_merge($report->toArray(), [
+            'drilling_phase'   => $report->rig?->drilling_phase,
             'total_bha_length' => $report->total_bha_length,
             'workers_count'    => $employees->count(),
             'employees'        => $employees,
@@ -380,9 +384,9 @@ class DailyReportController extends BaseApiController
     /** PUT /api/daily-reports/{report} */
     public function update(UpdateDailyReportRequest $request, DailyReport $daily_report): JsonResponse
     {
-        if ($daily_report->status !== 'draft') {
-            return $this->error('Only draft reports can be edited', 422);
-        }
+        // if ($daily_report->status !== 'draft') {
+        //     return $this->error('Only draft reports can be edited', 422);
+        // }
 
         if ($request->filled('rig_status')) {
             $request->validate([
@@ -647,6 +651,10 @@ class DailyReportController extends BaseApiController
         $reports->getCollection()->transform(function (DailyReport $report) {
             // ... انسخ من index
             return $report;
+        });
+
+        $reports->getCollection()->each(function (DailyReport $report) {
+            $report->drilling_phase = $report->rig?->drilling_phase;
         });
 
         return $this->paginated($reports);
