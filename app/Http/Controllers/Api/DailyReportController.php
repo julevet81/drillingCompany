@@ -649,12 +649,33 @@ class DailyReportController extends BaseApiController
 
         // نفس الـ transform الموجود في index (equipments_list, employees_list)
         $reports->getCollection()->transform(function (DailyReport $report) {
-            // ... انسخ من index
-            return $report;
-        });
-
-        $reports->getCollection()->each(function (DailyReport $report) {
             $report->drilling_phase = $report->rig?->drilling_phase;
+
+            $report->equipments_list = $report->reportEquipments->map(fn($re) => [
+                'id'            => $re->equipment?->id,
+                'name'          => $re->equipment?->name,
+                'marque'        => $re->equipment?->marque,
+                'serial_number' => $re->equipment?->serial_number,
+                'status'        => $re->status,
+                'photo_url'     => $re->equipment?->photo ? asset($re->equipment->photo) : null,
+            ]);
+
+            $report->employees_list = $report->shifts
+                ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
+                    'id'         => $emp->id,
+                    'name'       => $emp->full_name,
+                    'position'   => $emp->position?->name,
+                    'photo_url'  => $emp->photo ? asset($emp->photo) : null,
+                    'function'   => $emp->pivot->function ?? null,
+                    'status'     => $emp->pivot->status ?? null,
+                    'shift'      => $shift->post,
+                    'start_time' => $shift->start_time,
+                    'end_time'   => $shift->end_time,
+                ]))
+                ->unique('id')
+                ->values();
+
+            return $report;
         });
 
         return $this->paginated($reports);

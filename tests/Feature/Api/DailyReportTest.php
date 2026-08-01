@@ -194,4 +194,42 @@ class DailyReportTest extends TestCase
                 'avg_bha_length_m', 'total_materials',
             ]]);
     }
+
+    public function test_daily_report_endpoints_return_rig_drilling_phase(): void
+    {
+        $rig = Rig::factory()->create(['drilling_phase' => 'Phase 123']);
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $rig->id,
+            'report_date' => today()->toDateString(),
+            'created_by'  => $this->admin->id,
+        ]);
+
+        // 1. Index (عرض الكل)
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/daily-reports')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.rig.drilling_phase', 'Phase 123')
+            ->assertJsonPath('data.0.drilling_phase', 'Phase 123');
+
+        // 2. Show (واحد)
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/daily-reports/{$report->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.rig.drilling_phase', 'Phase 123')
+            ->assertJsonPath('data.drilling_phase', 'Phase 123');
+
+        // 3. Last (الاخير)
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/daily-reports/last/{$rig->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.rig.drilling_phase', 'Phase 123')
+            ->assertJsonPath('data.drilling_phase', 'Phase 123');
+
+        // 4. By Rig (عرض الكل لريغ معين)
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/daily-reports/by-rig/{$rig->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.rig.drilling_phase', 'Phase 123')
+            ->assertJsonPath('data.0.drilling_phase', 'Phase 123');
+    }
 }
