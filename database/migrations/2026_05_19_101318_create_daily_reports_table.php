@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('npt_cause')->nullable();
 
             $table->text('notes')->nullable();
-            $table->enum('status', ['draft', 'submitted', 'approved'])->default('draft');
+            $table->enum('status', ['draft', 'submitted', 'approved'])->default('approved');
 
             $table->timestamps();
             $table->softDeletes();

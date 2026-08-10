@@ -43,6 +43,7 @@ class DailyReportTest extends TestCase
                 'notes'            => 'Test report',
             ])
             ->assertStatus(201)
+            ->assertJsonPath('data.status', 'approved')
             ->assertJsonPath('data.incidents', 1)
             ->assertJsonPath('data.npt_hours', '2.50');
 
@@ -79,6 +80,26 @@ class DailyReportTest extends TestCase
         $this->assertDatabaseHas('rigs', [
             'id'             => $this->rig->id,
             'drilling_phase' => 'Drilling 8 1/2',
+        ]);
+    }
+
+    public function test_can_update_rig_drilling_phase_alias_when_creating_daily_report(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/daily-reports', [
+                'rig_id'              => $this->rig->id,
+                'report_date'         => today()->toDateString(),
+                'depth_start'         => 2000,
+                'depth_end'           => 2180,
+                'rig_drilling_phase'  => 'Casing 9 5/8',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.rig.drilling_phase', 'Casing 9 5/8')
+            ->assertJsonPath('data.drilling_phase', 'Casing 9 5/8');
+
+        $this->assertDatabaseHas('rigs', [
+            'id'             => $this->rig->id,
+            'drilling_phase' => 'Casing 9 5/8',
         ]);
     }
 

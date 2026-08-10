@@ -138,6 +138,8 @@ class DailyReportController extends BaseApiController
     /** POST /api/daily-reports */
     public function store(StoreDailyReportRequest $request): JsonResponse
     {
+        $drillingPhase = $this->rigDrillingPhaseFrom($request);
+
         if ($request->filled('rig_status')) {
             $request->validate([
                 'rig_status' => ['in:' . implode(',', Rig::STATUSES)],
@@ -145,10 +147,11 @@ class DailyReportController extends BaseApiController
         }
 
         try {
-            $report = DB::transaction(function () use ($request) {
-                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_notes']);
+            $report = DB::transaction(function () use ($request, $drillingPhase) {
+                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes']);
                 $data['created_by']     = $request->user()->id;
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+                $data['status']         = 'approved';
 
                 $report = DailyReport::create($data);
 
@@ -266,8 +269,8 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('rig_status')) {
                     $rigUpdate['status'] = $request->rig_status;
                 }
-                if ($request->filled('drilling_phase')) {
-                    $rigUpdate['drilling_phase'] = $request->drilling_phase;
+                if ($drillingPhase !== null) {
+                    $rigUpdate['drilling_phase'] = $drillingPhase;
                 }
                 if ($request->filled('rig_notes')) {
                     $rigUpdate['notes'] = $request->rig_notes;
@@ -283,7 +286,7 @@ class DailyReportController extends BaseApiController
             throw $e;
         }
 
-        if ($request->filled('rig_status') || $request->filled('drilling_phase')) {
+        if ($request->filled('rig_status') || $drillingPhase !== null) {
             Cache::forget('dashboard:stats');
             Cache::forget('rigs:stats');
         }
@@ -384,6 +387,8 @@ class DailyReportController extends BaseApiController
     /** PUT /api/daily-reports/{report} */
     public function update(UpdateDailyReportRequest $request, DailyReport $daily_report): JsonResponse
     {
+        $drillingPhase = $this->rigDrillingPhaseFrom($request);
+
         // if ($daily_report->status !== 'draft') {
         //     return $this->error('Only draft reports can be edited', 422);
         // }
@@ -394,8 +399,8 @@ class DailyReportController extends BaseApiController
             ]);
         }
 
-        DB::transaction(function () use ($request, $daily_report) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_notes']);
+        DB::transaction(function () use ($request, $daily_report, $drillingPhase) {
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes']);
 
             if (isset($data['depth_start'], $data['depth_end'])) {
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
@@ -407,8 +412,8 @@ class DailyReportController extends BaseApiController
             if ($request->filled('rig_status')) {
                 $rigUpdate['status'] = $request->rig_status;
             }
-            if ($request->filled('drilling_phase')) {
-                $rigUpdate['drilling_phase'] = $request->drilling_phase;
+            if ($drillingPhase !== null) {
+                $rigUpdate['drilling_phase'] = $drillingPhase;
             }
             if ($request->filled('rig_notes')) {
                 $rigUpdate['notes'] = $request->rig_notes;
@@ -552,7 +557,7 @@ class DailyReportController extends BaseApiController
             }
         });
 
-        if ($request->filled('rig_status') || $request->filled('drilling_phase')) {
+        if ($request->filled('rig_status') || $drillingPhase !== null) {
             Cache::forget('dashboard:stats');
             Cache::forget('rigs:stats');
         }
@@ -618,6 +623,17 @@ class DailyReportController extends BaseApiController
                 Employee::where('id', $empId)->update(['rig_id' => $report->rig_id]);
             }
         }
+    }
+
+    private function rigDrillingPhaseFrom(Request $request): ?string
+    {
+        foreach (['drilling_phase', 'rig_drilling_phase', 'rig.drilling_phase'] as $key) {
+            if ($request->filled($key)) {
+                return $request->input($key);
+            }
+        }
+
+        return null;
     }
 
     /** GET /api/daily-reports/by-rig/{rig} */
