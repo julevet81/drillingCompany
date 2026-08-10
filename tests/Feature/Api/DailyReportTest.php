@@ -83,6 +83,34 @@ class DailyReportTest extends TestCase
         ]);
     }
 
+    public function test_creating_daily_report_updates_rig_drilling_phase_from_payload(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/daily-reports', [
+                'rig_id'           => $this->rig->id,
+                'report_date'      => today()->toDateString(),
+                'depth_start'      => 1320,
+                'depth_end'        => 1445,
+                'fuel_consumption' => 480,
+                'incidents'        => 1,
+                'npt_hours'        => 2.5,
+                'npt_cause'        => 'Pump failure',
+                'notes'            => 'Drilling progressing smoothly.',
+                'rig_status'       => 'drilling',
+                'rig_notes'        => 'there is an incident',
+                'drilling_phase'   => '845',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.rig.drilling_phase', '845')
+            ->assertJsonPath('data.drilling_phase', '845');
+
+        $this->assertDatabaseHas('rigs', [
+            'id'             => $this->rig->id,
+            'drilling_phase' => '845',
+            'notes'          => 'there is an incident',
+        ]);
+    }
+
     public function test_can_update_rig_drilling_phase_alias_when_creating_daily_report(): void
     {
         $this->actingAs($this->admin, 'sanctum')

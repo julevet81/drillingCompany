@@ -275,7 +275,9 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('rig_notes')) {
                     $rigUpdate['notes'] = $request->rig_notes;
                 }
-                $report->rig->update($rigUpdate);
+                $rig = Rig::withTrashed()->findOrFail($report->rig_id);
+                $rig->forceFill($rigUpdate)->save();
+                $report->unsetRelation('rig');
 
                 return $report;
             });
@@ -291,14 +293,18 @@ class DailyReportController extends BaseApiController
             Cache::forget('rigs:stats');
         }
 
-        return $this->created(
-            $report->load([
+        $createdReport = $report->load([
                 'tools.drillingTool.toolType',
                 'reportEquipments.equipment',
                 'shifts.employees',
                 'shifts.mudCharacteristic',
                 'rig:id,name,code,status,drilling_phase,notes',
-            ])->append('previous_report'),
+            ])->append('previous_report');
+
+        return $this->created(
+            array_merge($createdReport->toArray(), [
+                'drilling_phase' => $createdReport->rig?->drilling_phase,
+            ]),
             'Daily report created'
         );
     }
@@ -419,7 +425,9 @@ class DailyReportController extends BaseApiController
                 $rigUpdate['notes'] = $request->rig_notes;
             }
             if (!empty($rigUpdate)) {
-                $daily_report->rig->update($rigUpdate);
+                $rig = Rig::withTrashed()->findOrFail($daily_report->rig_id);
+                $rig->forceFill($rigUpdate)->save();
+                $daily_report->unsetRelation('rig');
             }
 
             if ($request->filled('tools')) {
