@@ -275,6 +275,7 @@ class DailyReportController extends BaseApiController
                 if ($request->filled('rig_notes')) {
                     $rigUpdate['notes'] = $request->rig_notes;
                 }
+
                 $rig = Rig::withTrashed()->findOrFail($report->rig_id);
                 $rig->forceFill($rigUpdate)->save();
                 $report->unsetRelation('rig');
@@ -394,10 +395,6 @@ class DailyReportController extends BaseApiController
     public function update(UpdateDailyReportRequest $request, DailyReport $daily_report): JsonResponse
     {
         $drillingPhase = $this->rigDrillingPhaseFrom($request);
-
-        // if ($daily_report->status !== 'draft') {
-        //     return $this->error('Only draft reports can be edited', 422);
-        // }
 
         if ($request->filled('rig_status')) {
             $request->validate([
