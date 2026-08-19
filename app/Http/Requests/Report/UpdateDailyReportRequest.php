@@ -47,13 +47,19 @@ class UpdateDailyReportRequest extends FormRequest
                 'exists:employees,id',
                 function ($attribute, $value, $fail) {
                     $report = $this->route('daily_report');
+                    if (!$report) {
+                        return;
+                    }
+                    if (!$report instanceof \App\Models\DailyReport) {
+                        $report = \App\Models\DailyReport::findOrFail($report);
+                    }
 
                     $conflict = DB::table('employee_shifts')
                         ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
                         ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
                         ->where('employee_shifts.employee_id', $value)
                         ->where('daily_reports.id', '!=', $report->id)
-                        ->whereDate('daily_reports.report_date', $report->report_date)
+                        ->whereDate('daily_reports.report_date', $report->report_date->toDateString())
                         ->where('daily_reports.rig_id', '!=', $report->rig_id)
                         ->select('daily_reports.rig_id')
                         ->first();
@@ -82,6 +88,12 @@ class UpdateDailyReportRequest extends FormRequest
                 'exists:rig_materials,id',
                 function ($attribute, $value, $fail) {
                     $report = $this->route('daily_report');
+                    if (!$report) {
+                        return;
+                    }
+                    if (!$report instanceof \App\Models\DailyReport) {
+                        $report = \App\Models\DailyReport::findOrFail($report);
+                    }
                     $belongsToRig = RigMaterial::where('id', $value)
                         ->where('rig_id', $report->rig_id)
                         ->exists();

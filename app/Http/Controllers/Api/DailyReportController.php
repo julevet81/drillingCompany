@@ -189,11 +189,6 @@ class DailyReportController extends BaseApiController
                             'hours_used'   => $e['hours_used'] ?? 0,
                         ]);
 
-                        if (!empty($e['hours_used'])) {
-                            Equipment::where('id', $e['equipment_id'])
-                                ->increment('hours_of_operation', $e['hours_used']);
-                        }
-
                         // ← تحديث موقع المعدة الحالي ليطابق هذا الـ rig
                         Equipment::where('id', $e['equipment_id'])
                             ->where('current_rig_id', '!=', $report->rig_id)
@@ -213,9 +208,10 @@ class DailyReportController extends BaseApiController
                             'lithologie'  => $shiftData['lithologie'] ?? null,
                         ]);
 
-                        if (!empty($shiftData['employees'])) {
+                        if (array_key_exists('employees', $shiftData)) {
+                            $employees = $shiftData['employees'] ?? [];
                             $shift->employees()->sync(
-                                collect($shiftData['employees'])->mapWithKeys(fn($e) => [
+                                collect($employees)->mapWithKeys(fn($e) => [
                                     $e['employee_id'] => [
                                         'function' => $e['function'] ?? null,
                                         'status'   => $e['status'] ?? 'onsite',
@@ -223,7 +219,7 @@ class DailyReportController extends BaseApiController
                                 ])->toArray()
                             );
 
-                            $this->updateEmployeesCurrentRig($shiftData['employees'], $report);
+                            $this->updateEmployeesCurrentRig($employees, $report);
                         }
 
                         if (!empty($shiftData['mud'])) {
@@ -283,7 +279,8 @@ class DailyReportController extends BaseApiController
                 return $report;
             });
         } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'daily_reports_rig_id_report_date_unique')) {
+            if (str_contains($e->getMessage(), 'daily_reports_rig_id_report_date_unique') ||
+                str_contains($e->getMessage(), 'UNIQUE constraint failed: daily_reports.rig_id, daily_reports.report_date')) {
                 return $this->error('A report for this rig and date already exists.', 422);
             }
             throw $e;
@@ -490,9 +487,10 @@ class DailyReportController extends BaseApiController
                         ]
                     );
 
-                    if (!empty($shiftData['employees'])) {
+                    if (array_key_exists('employees', $shiftData)) {
+                        $employees = $shiftData['employees'] ?? [];
                         $shift->employees()->sync(
-                            collect($shiftData['employees'])->mapWithKeys(fn($e) => [
+                            collect($employees)->mapWithKeys(fn($e) => [
                                 $e['employee_id'] => [
                                     'function' => $e['function'] ?? null,
                                     'status'   => $e['status'] ?? 'onsite',
@@ -500,7 +498,7 @@ class DailyReportController extends BaseApiController
                             ])->toArray()
                         );
 
-                        $this->updateEmployeesCurrentRig($shiftData['employees'], $daily_report);
+                        $this->updateEmployeesCurrentRig($employees, $daily_report);
                     }
 
                     if (!empty($shiftData['mud'])) {
@@ -624,7 +622,7 @@ class DailyReportController extends BaseApiController
                 ->where('employee_shifts.employee_id', $empId)
                 ->max('daily_reports.report_date');
 
-            if (!$latestReportDate || $report->report_date >= $latestReportDate) {
+            if (!$latestReportDate || $report->report_date->greaterThanOrEqualTo($latestReportDate)) {
                 Employee::where('id', $empId)->update(['rig_id' => $report->rig_id]);
             }
         }

@@ -19,11 +19,11 @@ class DailyReportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Role::create(['name' => 'super_admin']);
+        Role::create(['name' => 'Super_Admin']);
         Role::create(['name' => 'well_manager']);
 
         $this->admin = User::factory()->create();
-        $this->admin->assignRole('super_admin');
+        $this->admin->assignRole('Super_Admin');
         $this->rig = Rig::factory()->create(['current_depth' => 2000]);
     }
 
@@ -303,5 +303,55 @@ class DailyReportTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.0.rig.drilling_phase', 'Phase 123')
             ->assertJsonPath('data.0.drilling_phase', 'Phase 123');
+    }
+
+    public function test_can_add_employee_to_shift_when_updating_daily_report(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Driller']);
+        $employee = \App\Models\Employee::create([
+            'full_name' => 'John Doe',
+            'position_id' => $position->id,
+            'rig_id' => $this->rig->id,
+        ]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'post' => 'post_1',
+                        'start_time' => '08:00',
+                        'end_time' => '20:00',
+                        'employees' => [
+                            [
+                                'employee_id' => $employee->id,
+                                'function' => 'Driller',
+                                'status' => 'onsite',
+                            ]
+                        ]
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employee->id,
+            'function' => 'Driller',
+            'status' => 'onsite',
+        ]);
     }
 }
