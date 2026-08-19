@@ -276,8 +276,10 @@ class DailyReportController extends BaseApiController
                 return $report;
             });
         } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'daily_reports_rig_id_report_date_unique') ||
-                str_contains($e->getMessage(), 'UNIQUE constraint failed: daily_reports.rig_id, daily_reports.report_date')) {
+            if (
+                str_contains($e->getMessage(), 'daily_reports_rig_id_report_date_unique') ||
+                str_contains($e->getMessage(), 'UNIQUE constraint failed: daily_reports.rig_id, daily_reports.report_date')
+            ) {
                 return $this->error('A report for this rig and date already exists.', 422);
             }
             throw $e;
@@ -289,12 +291,12 @@ class DailyReportController extends BaseApiController
         }
 
         $createdReport = $report->load([
-                'tools.drillingTool.toolType',
-                'reportEquipments.equipment',
-                'shifts.employees',
-                'shifts.mudCharacteristic',
-                'rig:id,name,code,status,drilling_phase,notes',
-            ])->append('previous_report');
+            'tools.drillingTool.toolType',
+            'reportEquipments.equipment',
+            'shifts.employees',
+            'shifts.mudCharacteristic',
+            'rig:id,name,code,status,drilling_phase,notes',
+        ])->append('previous_report');
 
         return $this->created(
             array_merge($createdReport->toArray(), [
@@ -564,7 +566,7 @@ class DailyReportController extends BaseApiController
                 ->where('employee_shifts.employee_id', $empId)
                 ->max('daily_reports.report_date');
 
-            if (!$latestReportDate || $report->report_date->greaterThanOrEqualTo($latestReportDate)) {
+            if (!$latestReportDate || Carbon::parse($report->report_date)->greaterThanOrEqualTo(Carbon::parse($latestReportDate))) {
                 Employee::where('id', $empId)->update(['rig_id' => $report->rig_id]);
             }
         }
@@ -799,7 +801,7 @@ class DailyReportController extends BaseApiController
                     'shift'      => $shift->post,
                     'start_time' => $shift->start_time,
                     'end_time'   => $shift->end_time,
-            ]))
+                ]))
                 ->values();
 
             return $report;
