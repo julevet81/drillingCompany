@@ -75,7 +75,6 @@ class DailyReportController extends BaseApiController
                     'start_time' => $shift->start_time,
                     'end_time'   => $shift->end_time,
                 ]))
-                ->unique('id')
                 ->values();
 
             return $report;
@@ -354,7 +353,6 @@ class DailyReportController extends BaseApiController
                 'shift'    => $shift->post,
                 'photo_url' => $emp->photo ? asset($emp->photo) : null,
             ]))
-            ->unique('id')
             ->values();
 
         return $this->success(array_merge($daily_report->toArray(), [
@@ -399,7 +397,6 @@ class DailyReportController extends BaseApiController
                 'start_time' => $shift->start_time,
                 'end_time'   => $shift->end_time,
             ]))
-            ->unique('id')
             ->values();
 
         return $this->success(array_merge($report->toArray(), [
@@ -513,12 +510,12 @@ class DailyReportController extends BaseApiController
                     $shift->report_id = $daily_report->id;
                     $shift->save();
 
-                    if (array_key_exists('employees', $shiftData)) {
-                        $employees = $shiftData['employees'] ?? [];
-                        $shift->employees()->sync($this->employeeSyncData($employees));
+                        if (array_key_exists('employees', $shiftData)) {
+                            $employees = $shiftData['employees'] ?? [];
+                            $this->syncShiftEmployees($shift, $employees);
 
-                        $this->updateEmployeesCurrentRig($employees, $daily_report);
-                    }
+                            $this->updateEmployeesCurrentRig($employees, $daily_report);
+                        }
 
                     if (!empty($shiftData['mud'])) {
                         $shift->mudCharacteristic()->updateOrCreate(
@@ -547,17 +544,7 @@ class DailyReportController extends BaseApiController
                         ]
                     );
 
-                    $syncData = $shiftEmployees->mapWithKeys(function ($e) {
-                        $empId = $e['employee_id'] ?? $e['id'];
-                        return [
-                            $empId => [
-                                'function' => $e['function'] ?? null,
-                                'status'   => $e['status'] ?? 'onsite',
-                            ]
-                        ];
-                    })->toArray();
-
-                    $shift->employees()->sync($syncData);
+                    $this->syncShiftEmployees($shift, $shiftEmployees->toArray());
                     $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $daily_report);
                 }
             }
@@ -616,7 +603,7 @@ class DailyReportController extends BaseApiController
             $daily_report->fresh([
                 'tools',
                 'reportEquipments',
-                'shifts.employees',
+                'shifts.employees.position',
                 'shifts.mudCharacteristic',
                 'materialLogs',
                 'rig:id,name,code,status,drilling_phase,notes',
@@ -698,6 +685,37 @@ class DailyReportController extends BaseApiController
             ->toArray();
     }
 
+    private function syncShiftEmployees(Shift $shift, array $employees): void
+    {
+        DB::table('employee_shifts')->where('shift_id', $shift->id)->delete();
+
+        $rows = collect($employees)
+            ->map(function ($employee) use ($shift) {
+                $employeeId = $employee['employee_id'] ?? $employee['id'] ?? null;
+
+                if (!$employeeId) {
+                    return null;
+                }
+
+                return [
+                    'shift_id'    => $shift->id,
+                    'employee_id' => $employeeId,
+                    'function'    => $employee['function'] ?? null,
+                    'status'      => $employee['status'] ?? 'onsite',
+                ];
+            })
+            ->filter()
+            ->unique(fn($row) => $row['shift_id'] . ':' . $row['employee_id'])
+            ->values()
+            ->all();
+
+        if (!empty($rows)) {
+            DB::table('employee_shifts')->insert($rows);
+        }
+
+        $shift->unsetRelation('employees');
+    }
+
     private function rigDrillingPhaseFrom(Request $request): ?string
     {
         foreach (['drilling_phase', 'rig_drilling_phase', 'rig.drilling_phase'] as $key) {
@@ -760,8 +778,7 @@ class DailyReportController extends BaseApiController
                     'shift'      => $shift->post,
                     'start_time' => $shift->start_time,
                     'end_time'   => $shift->end_time,
-                ]))
-                ->unique('id')
+            ]))
                 ->values();
 
             return $report;

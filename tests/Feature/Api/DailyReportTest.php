@@ -458,4 +458,51 @@ class DailyReportTest extends TestCase
             'status' => 'onBase',
         ]);
     }
+
+    public function test_show_daily_report_returns_all_shift_employees_after_update(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $employees = collect(['One', 'Two', 'Three'])->map(fn($name) => \App\Models\Employee::create([
+            'full_name' => "Employee {$name}",
+            'position_id' => $position->id,
+            'rig_id' => $this->rig->id,
+        ]));
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'id' => $shift->id,
+                        'employees' => $employees->map(fn($employee) => [
+                            'id' => $employee->id,
+                            'function' => 'Crew',
+                            'status' => 'onsite',
+                        ])->values()->all(),
+                    ],
+                ],
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame(3, \DB::table('employee_shifts')->where('shift_id', $shift->id)->count());
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/daily-reports/{$report->id}")
+            ->assertStatus(200)
+            ->assertJsonCount(3, 'data.shifts.0.employees')
+            ->assertJsonCount(3, 'data.employees');
+    }
 }
