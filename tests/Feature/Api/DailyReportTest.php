@@ -505,4 +505,151 @@ class DailyReportTest extends TestCase
             ->assertJsonCount(3, 'data.shifts.0.employees')
             ->assertJsonCount(3, 'data.employees');
     }
+
+    public function test_update_daily_report_replaces_original_shift_employees_in_response_and_database(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $employeeA = \App\Models\Employee::create(['full_name' => 'Employee A', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+        $employeeB = \App\Models\Employee::create(['full_name' => 'Employee B', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+        $employeeC = \App\Models\Employee::create(['full_name' => 'Employee C', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $shift->employees()->sync([
+            $employeeA->id => ['function' => 'Old A', 'status' => 'onsite'],
+            $employeeB->id => ['function' => 'Old B', 'status' => 'onsite'],
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'post' => 'post_1',
+                        'employees' => [
+                            ['employee_id' => $employeeB->id, 'function' => 'Updated B', 'status' => 'onBase'],
+                            ['employee_id' => $employeeC->id, 'function' => 'New C', 'status' => 'onsite'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data.shifts.0.employees')
+            ->assertJsonCount(2, 'data.employees')
+            ->assertJsonPath('data.employees.0.id', $employeeB->id)
+            ->assertJsonPath('data.employees.1.id', $employeeC->id);
+
+        $this->assertDatabaseMissing('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employeeA->id,
+        ]);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employeeB->id,
+            'function' => 'Updated B',
+            'status' => 'onBase',
+        ]);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employeeC->id,
+            'function' => 'New C',
+            'status' => 'onsite',
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/daily-reports/{$report->id}")
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data.shifts.0.employees')
+            ->assertJsonCount(2, 'data.employees');
+    }
+
+    public function test_can_update_flat_employees_by_shift_id_when_updating_daily_report(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $oldEmployee = \App\Models\Employee::create(['full_name' => 'Old Employee', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+        $newEmployee = \App\Models\Employee::create(['full_name' => 'New Employee', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $shift->employees()->sync([$oldEmployee->id => ['function' => 'Old', 'status' => 'onsite']]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'employees' => [
+                    [
+                        'shift_id' => $shift->id,
+                        'id' => $newEmployee->id,
+                        'function' => 'New',
+                        'status' => 'onBase',
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.employees')
+            ->assertJsonPath('data.employees.0.id', $newEmployee->id);
+
+        $this->assertDatabaseMissing('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $oldEmployee->id,
+        ]);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $newEmployee->id,
+            'function' => 'New',
+            'status' => 'onBase',
+        ]);
+    }
+
+    public function test_can_clear_all_report_employees_with_empty_flat_employees_array(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $employee = \App\Models\Employee::create(['full_name' => 'Employee', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $shift->employees()->sync([$employee->id => ['function' => 'Crew', 'status' => 'onsite']]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", ['employees' => []])
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data.employees')
+            ->assertJsonCount(0, 'data.shifts.0.employees');
+
+        $this->assertDatabaseMissing('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employee->id,
+        ]);
+    }
 }

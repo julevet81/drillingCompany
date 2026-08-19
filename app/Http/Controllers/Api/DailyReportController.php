@@ -209,7 +209,7 @@ class DailyReportController extends BaseApiController
 
                         if (array_key_exists('employees', $shiftData)) {
                             $employees = $shiftData['employees'] ?? [];
-                            $shift->employees()->sync($this->employeeSyncData($employees));
+                            $this->syncShiftEmployees($shift, $employees);
 
                             $this->updateEmployeesCurrentRig($employees, $report);
                         }
@@ -226,32 +226,7 @@ class DailyReportController extends BaseApiController
                 }
 
                 if ($request->has('employees')) {
-                    $employeesByShift = collect($request->input('employees', []))->groupBy('shift');
-                    foreach (['post_1', 'post_2'] as $post) {
-                        $shiftEmployees = $employeesByShift->get($post, collect());
-                        if ($shiftEmployees->isNotEmpty()) {
-                            $shift = Shift::firstOrCreate([
-                                'report_id' => $report->id,
-                                'post'      => $post,
-                            ], [
-                                'start_time' => $post === 'post_1' ? '08:00' : '20:00',
-                                'end_time'   => $post === 'post_1' ? '20:00' : '08:00',
-                            ]);
-
-                            $syncData = $shiftEmployees->mapWithKeys(function ($e) {
-                                $empId = $e['employee_id'] ?? $e['id'];
-                                return [
-                                    $empId => [
-                                        'function' => $e['function'] ?? null,
-                                        'status'   => $e['status'] ?? 'onsite',
-                                    ]
-                                ];
-                            })->toArray();
-
-                            $shift->employees()->sync($syncData);
-                            $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $report);
-                        }
-                    }
+                    $this->applyFlatEmployeeUpdates($report, $request->input('employees', []));
                 }
 
                 // Material logs
@@ -331,36 +306,7 @@ class DailyReportController extends BaseApiController
     /** GET /api/daily-reports/{report} */
     public function show(DailyReport $daily_report): JsonResponse
     {
-        $daily_report->load([
-            'rig:id,name,code,location_id,status,drilling_phase,notes',
-            'rig.location:id,name',
-            'author:id,full_name',
-            'tools.drillingTool.toolType:id,name',
-            'reportEquipments.equipment:id,name,serial_number,status',
-            'shifts.employees:id,full_name,photo,position_id',
-            'shifts.employees.position:id,name',
-            'shifts.mudCharacteristic',
-            'materialLogs.rigMaterial.materialType:id,name,unit',
-        ]);
-
-        $employees = $daily_report->shifts
-            ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
-                'id'       => $emp->id,
-                'name'     => $emp->full_name,
-                'position' => $emp->position?->name,
-                'function' => $emp->pivot->function ?? null,
-                'status'   => $emp->pivot->status ?? null,
-                'shift'    => $shift->post,
-                'photo_url' => $emp->photo ? asset($emp->photo) : null,
-            ]))
-            ->values();
-
-        return $this->success(array_merge($daily_report->toArray(), [
-            'drilling_phase'   => $daily_report->rig?->drilling_phase,
-            'total_bha_length' => $daily_report->total_bha_length,
-            'workers_count'    => $employees->count(),
-            'employees'        => $employees,
-        ]));
+        return $this->success($this->reportPayload($daily_report));
     }
 
     /** GET /api/daily-reports/last/{rig} */
@@ -385,26 +331,7 @@ class DailyReportController extends BaseApiController
             return $this->error('No reports found for this rig.', 404);
         }
 
-        $employees = $report->shifts
-            ->flatMap(fn($shift) => $shift->employees->map(fn($emp) => [
-                'id'         => $emp->id,
-                'name'       => $emp->full_name,
-                'position'   => $emp->position?->name,
-                'photo_url'  => $emp->photo ? asset($emp->photo) : null,
-                'function'   => $emp->pivot->function ?? null,
-                'status'     => $emp->pivot->status ?? null,
-                'shift'      => $shift->post,
-                'start_time' => $shift->start_time,
-                'end_time'   => $shift->end_time,
-            ]))
-            ->values();
-
-        return $this->success(array_merge($report->toArray(), [
-            'drilling_phase'   => $report->rig?->drilling_phase,
-            'total_bha_length' => $report->total_bha_length,
-            'workers_count'    => $employees->count(),
-            'employees'        => $employees,
-        ]));
+        return $this->success($this->reportPayload($report));
     }
 
     /** PUT /api/daily-reports/{report} */
@@ -532,21 +459,7 @@ class DailyReportController extends BaseApiController
             }
 
             if ($request->has('employees')) {
-                $employeesByShift = collect($request->input('employees', []))->groupBy('shift');
-                foreach (['post_1', 'post_2'] as $post) {
-                    $shiftEmployees = $employeesByShift->get($post, collect());
-
-                    $shift = $daily_report->shifts()->firstOrCreate(
-                        ['post' => $post],
-                        [
-                            'start_time' => $post === 'post_1' ? '08:00' : '20:00',
-                            'end_time'   => $post === 'post_1' ? '20:00' : '08:00',
-                        ]
-                    );
-
-                    $this->syncShiftEmployees($shift, $shiftEmployees->toArray());
-                    $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $daily_report);
-                }
+                $this->applyFlatEmployeeUpdates($daily_report, $request->input('employees', []));
             }
 
             // ← مفقود أيضاً: مواد المخزون لم تُعالج
@@ -600,14 +513,7 @@ class DailyReportController extends BaseApiController
         }
 
         return $this->success(
-            $daily_report->fresh([
-                'tools',
-                'reportEquipments',
-                'shifts.employees.position',
-                'shifts.mudCharacteristic',
-                'materialLogs',
-                'rig:id,name,code,status,drilling_phase,notes',
-            ]),
+            $this->reportPayload($daily_report->fresh()),
             'Report updated'
         );
     }
@@ -665,26 +571,6 @@ class DailyReportController extends BaseApiController
         }
     }
 
-    private function employeeSyncData(array $employees): array
-    {
-        return collect($employees)
-            ->mapWithKeys(function ($employee) {
-                $employeeId = $employee['employee_id'] ?? $employee['id'] ?? null;
-
-                if (!$employeeId) {
-                    return [];
-                }
-
-                return [
-                    $employeeId => [
-                        'function' => $employee['function'] ?? null,
-                        'status'   => $employee['status'] ?? 'onsite',
-                    ],
-                ];
-            })
-            ->toArray();
-    }
-
     private function syncShiftEmployees(Shift $shift, array $employees): void
     {
         DB::table('employee_shifts')->where('shift_id', $shift->id)->delete();
@@ -714,6 +600,86 @@ class DailyReportController extends BaseApiController
         }
 
         $shift->unsetRelation('employees');
+    }
+
+    private function applyFlatEmployeeUpdates(DailyReport $report, array $employees): void
+    {
+        if (empty($employees)) {
+            DB::table('employee_shifts')
+                ->whereIn('shift_id', $report->shifts()->pluck('id'))
+                ->delete();
+
+            $report->unsetRelation('shifts');
+            return;
+        }
+
+        collect($employees)
+            ->filter(fn($employee) => !empty($employee['shift_id']))
+            ->groupBy('shift_id')
+            ->each(function ($shiftEmployees, $shiftId) use ($report) {
+                $shift = $report->shifts()->whereKey($shiftId)->firstOrFail();
+                $this->syncShiftEmployees($shift, $shiftEmployees->toArray());
+                $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $report);
+            });
+
+        collect($employees)
+            ->filter(fn($employee) => empty($employee['shift_id']) && !empty($employee['shift']))
+            ->groupBy('shift')
+            ->each(function ($shiftEmployees, $post) use ($report) {
+                if (!in_array($post, ['post_1', 'post_2'], true)) {
+                    return;
+                }
+
+                $shift = $report->shifts()->firstOrCreate(
+                    ['post' => $post],
+                    [
+                        'start_time' => $post === 'post_1' ? '08:00' : '20:00',
+                        'end_time'   => $post === 'post_1' ? '20:00' : '08:00',
+                    ]
+                );
+
+                $this->syncShiftEmployees($shift, $shiftEmployees->toArray());
+                $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $report);
+            });
+
+        $report->unsetRelation('shifts');
+    }
+
+    private function reportPayload(DailyReport $report): array
+    {
+        $report->load([
+            'rig:id,name,code,location_id,status,drilling_phase,notes',
+            'rig.location:id,name',
+            'author:id,full_name',
+            'tools.drillingTool.toolType:id,name',
+            'reportEquipments.equipment:id,name,serial_number,status',
+            'shifts.employees:id,full_name,photo,position_id',
+            'shifts.employees.position:id,name',
+            'shifts.mudCharacteristic',
+            'materialLogs.rigMaterial.materialType:id,name,unit',
+        ]);
+
+        $employees = $report->shifts
+            ->flatMap(fn($shift) => $shift->employees->map(fn($employee) => [
+                'id'         => $employee->id,
+                'name'       => $employee->full_name,
+                'position'   => $employee->position?->name,
+                'photo_url'  => $employee->photo ? asset($employee->photo) : null,
+                'function'   => $employee->pivot->function ?? null,
+                'status'     => $employee->pivot->status ?? null,
+                'shift_id'   => $shift->id,
+                'shift'      => $shift->post,
+                'start_time' => $shift->start_time,
+                'end_time'   => $shift->end_time,
+            ]))
+            ->values();
+
+        return array_merge($report->toArray(), [
+            'drilling_phase'   => $report->rig?->drilling_phase,
+            'total_bha_length' => $report->total_bha_length,
+            'workers_count'    => $employees->count(),
+            'employees'        => $employees,
+        ]);
     }
 
     private function rigDrillingPhaseFrom(Request $request): ?string

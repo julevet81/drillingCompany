@@ -134,7 +134,8 @@ class UpdateDailyReportRequest extends FormRequest
                     }
                 },
             ],
-            'employees.*.shift'                 => ['required_with:employees', 'in:post_1,post_2'],
+            'employees.*.shift_id'              => ['nullable', 'exists:shifts,id'],
+            'employees.*.shift'                 => ['required_without:employees.*.shift_id', 'in:post_1,post_2'],
             'employees.*.function'              => ['nullable', 'string', 'max:100'],
             'employees.*.status'                => ['nullable', 'in:onsite,onBase,onLeave'],
 
