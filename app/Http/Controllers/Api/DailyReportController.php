@@ -14,6 +14,7 @@ use App\Models\MaterialLog;
 use App\Models\Rig;
 use App\Models\RigMaterial;
 use App\Models\Shift;
+use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -423,9 +424,7 @@ class DailyReportController extends BaseApiController
             // تحديث/إنشاء shifts وموظفيهم
             if ($request->filled('shifts')) {
                 foreach ($request->shifts as $shiftData) {
-                    $shift = !empty($shiftData['id'])
-                        ? $daily_report->shifts()->whereKey($shiftData['id'])->firstOrFail()
-                        : $daily_report->shifts()->firstOrNew(['post' => $shiftData['post']]);
+                    $shift = $this->shiftForPayload($daily_report, $shiftData);
 
                     $shift->fill(array_filter([
                         'post'        => $shiftData['post'] ?? $shift->post,
@@ -437,12 +436,12 @@ class DailyReportController extends BaseApiController
                     $shift->report_id = $daily_report->id;
                     $shift->save();
 
-                        if (array_key_exists('employees', $shiftData)) {
-                            $employees = $shiftData['employees'] ?? [];
-                            $this->syncShiftEmployees($shift, $employees);
+                    if (array_key_exists('employees', $shiftData)) {
+                        $employees = $shiftData['employees'] ?? [];
+                        $this->syncShiftEmployees($shift, $employees);
 
-                            $this->updateEmployeesCurrentRig($employees, $daily_report);
-                        }
+                        $this->updateEmployeesCurrentRig($employees, $daily_report);
+                    }
 
                     if (!empty($shiftData['mud'])) {
                         $shift->mudCharacteristic()->updateOrCreate(
@@ -600,6 +599,19 @@ class DailyReportController extends BaseApiController
         }
 
         $shift->unsetRelation('employees');
+    }
+
+    private function shiftForPayload(DailyReport $report, array $shiftData): Shift
+    {
+        $shiftId = $shiftData['id'] ?? $shiftData['shift_id'] ?? null;
+
+        if ($shiftId) {
+            return $report->shifts()->whereKey($shiftId)->firstOrFail();
+        }
+
+        return $report->shifts()->firstOrNew([
+            'post' => $shiftData['post'],
+        ]);
     }
 
     private function applyFlatEmployeeUpdates(DailyReport $report, array $employees): void

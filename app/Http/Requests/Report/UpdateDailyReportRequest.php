@@ -37,7 +37,8 @@ class UpdateDailyReportRequest extends FormRequest
             // تعديل موظفي الـ shifts الموجودة
             'shifts'                            => ['nullable', 'array', 'max:2'],
             'shifts.*.id'                       => ['nullable', 'exists:shifts,id'],
-            'shifts.*.post'                     => ['sometimes', 'in:post_1,post_2'],
+            'shifts.*.shift_id'                 => ['nullable', 'exists:shifts,id'],
+            'shifts.*.post'                     => ['required_without_all:shifts.*.id,shifts.*.shift_id', 'in:post_1,post_2'],
             'shifts.*.start_time'               => ['sometimes', 'date_format:H:i'],
             'shifts.*.end_time'                 => ['sometimes', 'date_format:H:i'],
             'shifts.*.description'              => ['nullable', 'string', 'max:2000'],

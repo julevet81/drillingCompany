@@ -711,4 +711,55 @@ class DailyReportTest extends TestCase
             ->whereIn('shift_id', $report->shifts()->pluck('id'))
             ->count());
     }
+
+    public function test_update_daily_report_removes_employee_from_shift_when_payload_has_one_employee(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $employeeA = \App\Models\Employee::create(['full_name' => 'Employee A', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+        $employeeB = \App\Models\Employee::create(['full_name' => 'Employee B', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $shift->employees()->sync([
+            $employeeA->id => ['function' => 'A', 'status' => 'onsite'],
+            $employeeB->id => ['function' => 'B', 'status' => 'onsite'],
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'shift_id' => $shift->id,
+                        'employees' => [
+                            ['employee_id' => $employeeA->id, 'function' => 'A', 'status' => 'onsite'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.shifts.0.employees')
+            ->assertJsonCount(1, 'data.employees')
+            ->assertJsonPath('data.employees.0.id', $employeeA->id);
+
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employeeA->id,
+        ]);
+        $this->assertDatabaseMissing('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employeeB->id,
+        ]);
+        $this->assertSame(1, \DB::table('employee_shifts')->where('shift_id', $shift->id)->count());
+    }
 }
