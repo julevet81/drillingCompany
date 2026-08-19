@@ -44,7 +44,7 @@ class UpdateDailyReportRequest extends FormRequest
             'shifts.*.lithologie'               => ['nullable', 'string', 'max:255'],
             'shifts.*.employees'                => ['nullable', 'array'],
             'shifts.*.employees.*.employee_id' => [
-                'required_without:shifts.*.employees.*.id',
+                'required_without_all:shifts.*.employees.*.id,shifts.*.employees.*.employee.id',
                 'exists:employees,id',
                 function ($attribute, $value, $fail) {
                     $report = $this->route('daily_report');
@@ -70,7 +70,8 @@ class UpdateDailyReportRequest extends FormRequest
                     }
                 },
             ],
-            'shifts.*.employees.*.id'           => ['required_without:shifts.*.employees.*.employee_id', 'exists:employees,id'],
+            'shifts.*.employees.*.id'           => ['required_without_all:shifts.*.employees.*.employee_id,shifts.*.employees.*.employee.id', 'exists:employees,id'],
+            'shifts.*.employees.*.employee.id'  => ['nullable', 'exists:employees,id'],
             'shifts.*.employees.*.function'     => ['nullable', 'string', 'max:100'],
             'shifts.*.employees.*.status'       => ['nullable', 'in:onsite,onBase,onLeave'],
             'shifts.*.mud'                      => ['nullable', 'array'],

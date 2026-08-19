@@ -554,7 +554,7 @@ class DailyReportController extends BaseApiController
     private function updateEmployeesCurrentRig(array $employees, DailyReport $report): void
     {
         $employeeIds = collect($employees)
-            ->map(fn($employee) => $employee['employee_id'] ?? $employee['id'] ?? null)
+            ->map(fn($employee) => $this->employeeIdFrom($employee))
             ->filter()
             ->unique();
 
@@ -577,7 +577,7 @@ class DailyReportController extends BaseApiController
 
         $rows = collect($employees)
             ->map(function ($employee) use ($shift) {
-                $employeeId = $employee['employee_id'] ?? $employee['id'] ?? null;
+                $employeeId = $this->employeeIdFrom($employee);
 
                 if (!$employeeId) {
                     return null;
@@ -653,33 +653,76 @@ class DailyReportController extends BaseApiController
             'author:id,full_name',
             'tools.drillingTool.toolType:id,name',
             'reportEquipments.equipment:id,name,serial_number,status',
-            'shifts.employees:id,full_name,photo,position_id',
-            'shifts.employees.position:id,name',
             'shifts.mudCharacteristic',
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
 
-        $employees = $report->shifts
-            ->flatMap(fn($shift) => $shift->employees->map(fn($employee) => [
-                'id'         => $employee->id,
-                'name'       => $employee->full_name,
-                'position'   => $employee->position?->name,
-                'photo_url'  => $employee->photo ? asset($employee->photo) : null,
-                'function'   => $employee->pivot->function ?? null,
-                'status'     => $employee->pivot->status ?? null,
-                'shift_id'   => $shift->id,
-                'shift'      => $shift->post,
-                'start_time' => $shift->start_time,
-                'end_time'   => $shift->end_time,
-            ]))
+        $shifts = $report->shifts->values();
+        $employeesByShift = $this->reportEmployees($shifts->pluck('id'))->groupBy('shift_id');
+
+        $shiftsPayload = $shifts
+            ->map(function (Shift $shift) use ($employeesByShift) {
+                $shiftData = $shift->toArray();
+                $shiftData['employees'] = $employeesByShift->get($shift->id, collect())->values()->all();
+
+                return $shiftData;
+            })
             ->values();
 
-        return array_merge($report->toArray(), [
+        $employees = $employeesByShift->flatten(1)->values();
+        $payload = $report->toArray();
+        $payload['shifts'] = $shiftsPayload;
+
+        return array_merge($payload, [
             'drilling_phase'   => $report->rig?->drilling_phase,
             'total_bha_length' => $report->total_bha_length,
             'workers_count'    => $employees->count(),
             'employees'        => $employees,
         ]);
+    }
+
+    private function reportEmployees($shiftIds)
+    {
+        if ($shiftIds->isEmpty()) {
+            return collect();
+        }
+
+        return DB::table('employee_shifts')
+            ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+            ->join('employees', 'employees.id', '=', 'employee_shifts.employee_id')
+            ->leftJoin('positions', 'positions.id', '=', 'employees.position_id')
+            ->whereIn('employee_shifts.shift_id', $shiftIds)
+            ->orderBy('shifts.id')
+            ->orderBy('employees.id')
+            ->get([
+                'employees.id',
+                'employees.full_name as name',
+                'employees.photo',
+                'positions.name as position',
+                'employee_shifts.function',
+                'employee_shifts.status',
+                'employee_shifts.shift_id',
+                'shifts.post as shift',
+                'shifts.start_time',
+                'shifts.end_time',
+            ])
+            ->map(fn($employee) => [
+                'id'         => $employee->id,
+                'name'       => $employee->name,
+                'position'   => $employee->position,
+                'photo_url'  => $employee->photo ? asset($employee->photo) : null,
+                'function'   => $employee->function,
+                'status'     => $employee->status,
+                'shift_id'   => $employee->shift_id,
+                'shift'      => $employee->shift,
+                'start_time' => $employee->start_time,
+                'end_time'   => $employee->end_time,
+            ]);
+    }
+
+    private function employeeIdFrom(array $employee): ?int
+    {
+        return $employee['employee_id'] ?? $employee['id'] ?? $employee['employee']['id'] ?? null;
     }
 
     private function rigDrillingPhaseFrom(Request $request): ?string

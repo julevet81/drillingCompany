@@ -652,4 +652,63 @@ class DailyReportTest extends TestCase
             'employee_id' => $employee->id,
         ]);
     }
+
+    public function test_update_daily_report_keeps_all_employees_across_two_shifts(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $employees = collect(['A', 'B', 'C'])->map(fn($name) => \App\Models\Employee::create([
+            'full_name' => "Employee {$name}",
+            'position_id' => $position->id,
+            'rig_id' => $this->rig->id,
+        ]))->values();
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ])->employees()->sync([$employees[0]->id => ['function' => 'Old', 'status' => 'onsite']]);
+
+        \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_2',
+            'start_time' => '20:00',
+            'end_time' => '08:00',
+        ])->employees()->sync([$employees[0]->id => ['function' => 'Old', 'status' => 'onsite']]);
+
+        $payloadEmployees = $employees->map(fn($employee) => [
+            'employee_id' => $employee->id,
+            'function' => 'Crew',
+            'status' => 'onsite',
+        ])->all();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'post' => 'post_1',
+                        'employees' => $payloadEmployees,
+                    ],
+                    [
+                        'post' => 'post_2',
+                        'employees' => $payloadEmployees,
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonCount(3, 'data.shifts.0.employees')
+            ->assertJsonCount(3, 'data.shifts.1.employees')
+            ->assertJsonCount(6, 'data.employees');
+
+        $this->assertSame(6, \DB::table('employee_shifts')
+            ->whereIn('shift_id', $report->shifts()->pluck('id'))
+            ->count());
+    }
 }
