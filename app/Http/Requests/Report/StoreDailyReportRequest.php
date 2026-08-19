@@ -81,6 +81,46 @@ class StoreDailyReportRequest extends FormRequest
             'shifts.*.mud.ph'                   => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
             'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
 
+            'employees'                         => ['nullable', 'array'],
+            'employees.*.id'                    => [
+                'sometimes',
+                'exists:employees,id',
+                function ($attribute, $value, $fail) {
+                    $conflict = DB::table('employee_shifts')
+                        ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                        ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                        ->where('employee_shifts.employee_id', $value)
+                        ->whereDate('daily_reports.report_date', $this->report_date)
+                        ->where('daily_reports.rig_id', '!=', $this->rig_id)
+                        ->select('daily_reports.rig_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $fail("Employee #{$value} is already assigned to rig #{$conflict->rig_id} on this date.");
+                    }
+                },
+            ],
+            'employees.*.employee_id'           => [
+                'sometimes',
+                'exists:employees,id',
+                function ($attribute, $value, $fail) {
+                    $conflict = DB::table('employee_shifts')
+                        ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                        ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                        ->where('employee_shifts.employee_id', $value)
+                        ->whereDate('daily_reports.report_date', $this->report_date)
+                        ->where('daily_reports.rig_id', '!=', $this->rig_id)
+                        ->select('daily_reports.rig_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $fail("Employee #{$value} is already assigned to rig #{$conflict->rig_id} on this date.");
+                    }
+                },
+            ],
+            'employees.*.shift'                 => ['required_with:employees', 'in:post_1,post_2'],
+            'employees.*.function'              => ['nullable', 'string', 'max:100'],
+            'employees.*.status'                => ['nullable', 'in:onsite,onBase,onLeave'],
 
             // Materials — مقيّدة بـ rig_id لهذا التقرير
             'materials'                   => ['nullable', 'array'],

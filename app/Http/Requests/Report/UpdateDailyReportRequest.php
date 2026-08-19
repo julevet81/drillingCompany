@@ -77,12 +77,72 @@ class UpdateDailyReportRequest extends FormRequest
             'shifts.*.mud.ph'                   => ['required_with:shifts.*.mud', 'numeric', 'min:0', 'max:14'],
             'shifts.*.mud.filtra'               => ['required_with:shifts.*.mud', 'numeric', 'min:0'],
 
+            'employees'                         => ['nullable', 'array'],
+            'employees.*.id'                    => [
+                'sometimes',
+                'exists:employees,id',
+                function ($attribute, $value, $fail) {
+                    $report = $this->route('daily_report');
+                    if (!$report) {
+                        return;
+                    }
+                    if (!$report instanceof \App\Models\DailyReport) {
+                        $report = \App\Models\DailyReport::findOrFail($report);
+                    }
+
+                    $conflict = DB::table('employee_shifts')
+                        ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                        ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                        ->where('employee_shifts.employee_id', $value)
+                        ->where('daily_reports.id', '!=', $report->id)
+                        ->whereDate('daily_reports.report_date', $report->report_date->toDateString())
+                        ->where('daily_reports.rig_id', '!=', $report->rig_id)
+                        ->select('daily_reports.rig_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $fail("Employee #{$value} is already assigned to rig #{$conflict->rig_id} on this date.");
+                    }
+                },
+            ],
+            'employees.*.employee_id'           => [
+                'sometimes',
+                'exists:employees,id',
+                function ($attribute, $value, $fail) {
+                    $report = $this->route('daily_report');
+                    if (!$report) {
+                        return;
+                    }
+                    if (!$report instanceof \App\Models\DailyReport) {
+                        $report = \App\Models\DailyReport::findOrFail($report);
+                    }
+
+                    $conflict = DB::table('employee_shifts')
+                        ->join('shifts', 'shifts.id', '=', 'employee_shifts.shift_id')
+                        ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
+                        ->where('employee_shifts.employee_id', $value)
+                        ->where('daily_reports.id', '!=', $report->id)
+                        ->whereDate('daily_reports.report_date', $report->report_date->toDateString())
+                        ->where('daily_reports.rig_id', '!=', $report->rig_id)
+                        ->select('daily_reports.rig_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $fail("Employee #{$value} is already assigned to rig #{$conflict->rig_id} on this date.");
+                    }
+                },
+            ],
+            'employees.*.shift'                 => ['required_with:employees', 'in:post_1,post_2'],
+            'employees.*.function'              => ['nullable', 'string', 'max:100'],
+            'employees.*.status'                => ['nullable', 'in:onsite,onBase,onLeave'],
+
             'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped'],
             'drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig_drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig.drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig_notes' => ['nullable', 'string', 'max:5000'],
 
+            'materials'                   => ['nullable', 'array'],
             'materials.*.rig_material_id' => [
                 'required',
                 'exists:rig_materials,id',

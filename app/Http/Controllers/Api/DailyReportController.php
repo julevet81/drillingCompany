@@ -148,7 +148,7 @@ class DailyReportController extends BaseApiController
 
         try {
             $report = DB::transaction(function () use ($request, $drillingPhase) {
-                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes']);
+                $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes', 'employees']);
                 $data['created_by']     = $request->user()->id;
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
                 $data['status']         = 'approved';
@@ -229,6 +229,35 @@ class DailyReportController extends BaseApiController
                                 'mud_pH'        => $shiftData['mud']['ph'],
                                 'mud_filtra'    => $shiftData['mud']['filtra'],
                             ]);
+                        }
+                    }
+                }
+
+                if ($request->has('employees')) {
+                    $employeesByShift = collect($request->input('employees', []))->groupBy('shift');
+                    foreach (['post_1', 'post_2'] as $post) {
+                        $shiftEmployees = $employeesByShift->get($post, collect());
+                        if ($shiftEmployees->isNotEmpty()) {
+                            $shift = Shift::firstOrCreate([
+                                'report_id' => $report->id,
+                                'post'      => $post,
+                            ], [
+                                'start_time' => $post === 'post_1' ? '08:00' : '20:00',
+                                'end_time'   => $post === 'post_1' ? '20:00' : '08:00',
+                            ]);
+
+                            $syncData = $shiftEmployees->mapWithKeys(function ($e) {
+                                $empId = $e['employee_id'] ?? $e['id'];
+                                return [
+                                    $empId => [
+                                        'function' => $e['function'] ?? null,
+                                        'status'   => $e['status'] ?? 'onsite',
+                                    ]
+                                ];
+                            })->toArray();
+
+                            $shift->employees()->sync($syncData);
+                            $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $report);
                         }
                     }
                 }
@@ -400,7 +429,7 @@ class DailyReportController extends BaseApiController
         }
 
         DB::transaction(function () use ($request, $daily_report, $drillingPhase) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes']);
+            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes', 'employees']);
 
             if (isset($data['depth_start'], $data['depth_end'])) {
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
@@ -512,6 +541,34 @@ class DailyReportController extends BaseApiController
                             ]
                         );
                     }
+                }
+            }
+
+            if ($request->has('employees')) {
+                $employeesByShift = collect($request->input('employees', []))->groupBy('shift');
+                foreach (['post_1', 'post_2'] as $post) {
+                    $shiftEmployees = $employeesByShift->get($post, collect());
+
+                    $shift = $daily_report->shifts()->firstOrCreate(
+                        ['post' => $post],
+                        [
+                            'start_time' => $post === 'post_1' ? '08:00' : '20:00',
+                            'end_time'   => $post === 'post_1' ? '20:00' : '08:00',
+                        ]
+                    );
+
+                    $syncData = $shiftEmployees->mapWithKeys(function ($e) {
+                        $empId = $e['employee_id'] ?? $e['id'];
+                        return [
+                            $empId => [
+                                'function' => $e['function'] ?? null,
+                                'status'   => $e['status'] ?? 'onsite',
+                            ]
+                        ];
+                    })->toArray();
+
+                    $shift->employees()->sync($syncData);
+                    $this->updateEmployeesCurrentRig($shiftEmployees->toArray(), $daily_report);
                 }
             }
 

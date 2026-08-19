@@ -354,4 +354,44 @@ class DailyReportTest extends TestCase
             'status' => 'onsite',
         ]);
     }
+
+    public function test_can_update_employees_via_flat_array_when_updating_daily_report(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Driller']);
+        $employee = \App\Models\Employee::create([
+            'full_name' => 'John Doe',
+            'position_id' => $position->id,
+            'rig_id' => $this->rig->id,
+        ]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'employees' => [
+                    [
+                        'id' => $employee->id,
+                        'shift' => 'post_1',
+                        'function' => 'Driller',
+                        'status' => 'onsite',
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(200);
+
+        $shift = $report->shifts()->where('post', 'post_1')->first();
+        $this->assertNotNull($shift);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $employee->id,
+            'function' => 'Driller',
+            'status' => 'onsite',
+        ]);
+    }
 }
