@@ -394,4 +394,68 @@ class DailyReportTest extends TestCase
             'status' => 'onsite',
         ]);
     }
+
+    public function test_can_replace_shift_employees_when_updating_daily_report_by_shift_id(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Driller']);
+        $oldEmployee = \App\Models\Employee::create([
+            'full_name' => 'Old Employee',
+            'position_id' => $position->id,
+            'rig_id' => $this->rig->id,
+        ]);
+        $newEmployee = \App\Models\Employee::create([
+            'full_name' => 'New Employee',
+            'position_id' => $position->id,
+            'rig_id' => $this->rig->id,
+        ]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $shift->employees()->sync([
+            $oldEmployee->id => [
+                'function' => 'Old Function',
+                'status' => 'onsite',
+            ],
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'id' => $shift->id,
+                        'employees' => [
+                            [
+                                'id' => $newEmployee->id,
+                                'function' => 'New Function',
+                                'status' => 'onBase',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.shifts.0.employees.0.id', $newEmployee->id);
+
+        $this->assertDatabaseMissing('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $oldEmployee->id,
+        ]);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $newEmployee->id,
+            'function' => 'New Function',
+            'status' => 'onBase',
+        ]);
+    }
 }

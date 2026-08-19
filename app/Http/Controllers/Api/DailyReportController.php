@@ -210,14 +210,7 @@ class DailyReportController extends BaseApiController
 
                         if (array_key_exists('employees', $shiftData)) {
                             $employees = $shiftData['employees'] ?? [];
-                            $shift->employees()->sync(
-                                collect($employees)->mapWithKeys(fn($e) => [
-                                    $e['employee_id'] => [
-                                        'function' => $e['function'] ?? null,
-                                        'status'   => $e['status'] ?? 'onsite',
-                                    ],
-                                ])->toArray()
-                            );
+                            $shift->employees()->sync($this->employeeSyncData($employees));
 
                             $this->updateEmployeesCurrentRig($employees, $report);
                         }
@@ -506,26 +499,23 @@ class DailyReportController extends BaseApiController
             // تحديث/إنشاء shifts وموظفيهم
             if ($request->filled('shifts')) {
                 foreach ($request->shifts as $shiftData) {
-                    $shift = $daily_report->shifts()->updateOrCreate(
-                        ['post' => $shiftData['post']],
-                        [
-                            'start_time' => $shiftData['start_time'],
-                            'end_time'   => $shiftData['end_time'],
-                            'description' => $shiftData['description'] ?? null,
-                            'lithologie'  => $shiftData['lithologie'] ?? null,
-                        ]
-                    );
+                    $shift = !empty($shiftData['id'])
+                        ? $daily_report->shifts()->whereKey($shiftData['id'])->firstOrFail()
+                        : $daily_report->shifts()->firstOrNew(['post' => $shiftData['post']]);
+
+                    $shift->fill(array_filter([
+                        'post'        => $shiftData['post'] ?? $shift->post,
+                        'start_time'  => $shiftData['start_time'] ?? null,
+                        'end_time'    => $shiftData['end_time'] ?? null,
+                        'description' => $shiftData['description'] ?? null,
+                        'lithologie'  => $shiftData['lithologie'] ?? null,
+                    ], fn($value) => $value !== null));
+                    $shift->report_id = $daily_report->id;
+                    $shift->save();
 
                     if (array_key_exists('employees', $shiftData)) {
                         $employees = $shiftData['employees'] ?? [];
-                        $shift->employees()->sync(
-                            collect($employees)->mapWithKeys(fn($e) => [
-                                $e['employee_id'] => [
-                                    'function' => $e['function'] ?? null,
-                                    'status'   => $e['status'] ?? 'onsite',
-                                ],
-                            ])->toArray()
-                        );
+                        $shift->employees()->sync($this->employeeSyncData($employees));
 
                         $this->updateEmployeesCurrentRig($employees, $daily_report);
                     }
@@ -670,7 +660,10 @@ class DailyReportController extends BaseApiController
 
     private function updateEmployeesCurrentRig(array $employees, DailyReport $report): void
     {
-        $employeeIds = collect($employees)->pluck('employee_id');
+        $employeeIds = collect($employees)
+            ->map(fn($employee) => $employee['employee_id'] ?? $employee['id'] ?? null)
+            ->filter()
+            ->unique();
 
         foreach ($employeeIds as $empId) {
             $latestReportDate = DB::table('employee_shifts')
@@ -683,6 +676,26 @@ class DailyReportController extends BaseApiController
                 Employee::where('id', $empId)->update(['rig_id' => $report->rig_id]);
             }
         }
+    }
+
+    private function employeeSyncData(array $employees): array
+    {
+        return collect($employees)
+            ->mapWithKeys(function ($employee) {
+                $employeeId = $employee['employee_id'] ?? $employee['id'] ?? null;
+
+                if (!$employeeId) {
+                    return [];
+                }
+
+                return [
+                    $employeeId => [
+                        'function' => $employee['function'] ?? null,
+                        'status'   => $employee['status'] ?? 'onsite',
+                    ],
+                ];
+            })
+            ->toArray();
     }
 
     private function rigDrillingPhaseFrom(Request $request): ?string
