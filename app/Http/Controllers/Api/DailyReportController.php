@@ -182,12 +182,20 @@ class DailyReportController extends BaseApiController
                 // Equipments
                 if ($request->filled('equipments')) {
                     foreach ($request->equipments as $e) {
+                        $hoursUsed = $e['hours_used'] ?? 0;
+
                         DailyReportEquipment::create([
                             'report_id'    => $report->id,
                             'equipment_id' => $e['equipment_id'],
                             'status'       => $e['status'] ?? 'Operational',
-                            'hours_used'   => $e['hours_used'] ?? 0,
+                            'hours_used'   => $hoursUsed,
                         ]);
+
+                        // ← تحديث مجموع ساعات تشغيل المعدة بشكل تراكمي
+                        if ($hoursUsed > 0) {
+                            Equipment::where('id', $e['equipment_id'])
+                                ->increment('hours_of_operation', $hoursUsed);
+                        }
 
                         // ← تحديث موقع المعدة الحالي ليطابق هذا الـ rig
                         Equipment::where('id', $e['equipment_id'])
@@ -410,16 +418,45 @@ class DailyReportController extends BaseApiController
                 }
             }
 
-            // ← مفقود سابقاً: تحديث equipments
+            // تحديث equipments
             if ($request->filled('equipments')) {
+                // ← الخطوة 1: جمع ساعات التشغيل القديمة لكل معدة في هذا التقرير
+                $oldHoursMap = $daily_report->reportEquipments()
+                    ->get(['equipment_id', 'hours_used'])
+                    ->keyBy('equipment_id');
+
+                // ← الخطوة 2: حذف سجلات التقرير القديمة
                 $daily_report->reportEquipments()->delete();
+
                 foreach ($request->equipments as $e) {
+                    $hoursUsed = $e['hours_used'] ?? 0;
+
                     DailyReportEquipment::create([
                         'report_id'    => $daily_report->id,
                         'equipment_id' => $e['equipment_id'],
                         'status'       => $e['status'] ?? 'Operational',
-                        'hours_used'   => $e['hours_used'] ?? 0,
+                        'hours_used'   => $hoursUsed,
                     ]);
+
+                    // ← الخطوة 3: عكس الساعات القديمة ثم إضافة الجديدة على جدول العتاد
+                    $oldHours = $oldHoursMap->get($e['equipment_id'])?->hours_used ?? 0;
+                    $diff     = $hoursUsed - $oldHours;
+
+                    if ($diff !== 0) {
+                        Equipment::where('id', $e['equipment_id'])
+                            ->increment('hours_of_operation', $diff);
+                    }
+                }
+
+                // ← الخطوة 4: عكس ساعات المعدات التي حُذفت من التقرير كلياً (لم تُرسل في التحديث)
+                $newEquipmentIds = collect($request->equipments)->pluck('equipment_id');
+                $removedEntries  = $oldHoursMap->whereNotIn('equipment_id', $newEquipmentIds);
+
+                foreach ($removedEntries as $removed) {
+                    if ($removed->hours_used > 0) {
+                        Equipment::where('id', $removed->equipment_id)
+                            ->decrement('hours_of_operation', $removed->hours_used);
+                    }
                 }
             }
 
