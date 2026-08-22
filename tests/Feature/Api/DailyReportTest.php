@@ -712,6 +712,71 @@ class DailyReportTest extends TestCase
             ->count());
     }
 
+    public function test_update_daily_report_prefers_shift_employees_over_stale_flat_employees(): void
+    {
+        $position = \App\Models\Position::create(['name' => 'Crew']);
+        $oldEmployee = \App\Models\Employee::create(['full_name' => 'Old Employee', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+        $newEmployee = \App\Models\Employee::create(['full_name' => 'New Employee', 'position_id' => $position->id, 'rig_id' => $this->rig->id]);
+
+        $report = DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'status'      => 'draft',
+            'report_date' => today()->toDateString(),
+        ]);
+
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $shift->employees()->sync([$oldEmployee->id => ['function' => 'Old', 'status' => 'onsite']]);
+
+        $staleFlatEmployees = [
+            [
+                'id' => $oldEmployee->id,
+                'shift_id' => $shift->id,
+                'shift' => 'post_1',
+                'function' => 'Old',
+                'status' => 'onsite',
+            ],
+        ];
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'shifts' => [
+                    [
+                        'id' => $shift->id,
+                        'post' => 'post_1',
+                        'employees' => [
+                            [
+                                'id' => $newEmployee->id,
+                                'function' => 'New',
+                                'status' => 'onBase',
+                            ],
+                        ],
+                    ],
+                ],
+                'employees' => $staleFlatEmployees,
+            ])
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.shifts.0.employees')
+            ->assertJsonPath('data.shifts.0.employees.0.id', $newEmployee->id)
+            ->assertJsonPath('data.employees.0.id', $newEmployee->id);
+
+        $this->assertDatabaseMissing('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $oldEmployee->id,
+        ]);
+        $this->assertDatabaseHas('employee_shifts', [
+            'shift_id' => $shift->id,
+            'employee_id' => $newEmployee->id,
+            'function' => 'New',
+            'status' => 'onBase',
+        ]);
+    }
+
     public function test_update_daily_report_removes_employee_from_shift_when_payload_has_one_employee(): void
     {
         $position = \App\Models\Position::create(['name' => 'Crew']);

@@ -89,7 +89,7 @@ class DailyReportController extends BaseApiController
     {
         try {
             $date = $request->filled('date')
-                ? \Carbon\Carbon::parse($request->date)->toDateString()
+                ? Carbon::parse($request->date)->toDateString()
                 : today()->toDateString();
 
             $data = DailyReport::whereDate('report_date', $date)
@@ -226,7 +226,7 @@ class DailyReportController extends BaseApiController
                     }
                 }
 
-                if ($request->has('employees')) {
+                if ($this->shouldApplyFlatEmployeeUpdates($request)) {
                     $this->applyFlatEmployeeUpdates($report, $request->input('employees', []));
                 }
 
@@ -459,7 +459,7 @@ class DailyReportController extends BaseApiController
                 }
             }
 
-            if ($request->has('employees')) {
+            if ($this->shouldApplyFlatEmployeeUpdates($request)) {
                 $this->applyFlatEmployeeUpdates($daily_report, $request->input('employees', []));
             }
 
@@ -736,7 +736,32 @@ class DailyReportController extends BaseApiController
 
     private function employeeIdFrom(array $employee): ?int
     {
-        return $employee['employee_id'] ?? $employee['id'] ?? $employee['employee']['id'] ?? null;
+        return $employee['employee_id']
+            ?? $employee['id']
+            ?? $employee['employee']['id']
+            ?? $employee['pivot']['employee_id']
+            ?? null;
+    }
+
+    /**
+     * Flat "employees" updates are skipped when shifts already carry nested employee lists.
+     * Full report payloads often include both; applying flat employees afterward would
+     * overwrite intentional shift-level add/remove changes with stale data.
+     */
+    private function shouldApplyFlatEmployeeUpdates(Request $request): bool
+    {
+        if (!$request->has('employees')) {
+            return false;
+        }
+
+        if (!$request->filled('shifts')) {
+            return true;
+        }
+
+        $nestedEmployeeUpdates = collect($request->input('shifts', []))
+            ->contains(fn(array $shift) => array_key_exists('employees', $shift));
+
+        return !$nestedEmployeeUpdates;
     }
 
     private function rigDrillingPhaseFrom(Request $request): ?string
