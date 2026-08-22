@@ -428,13 +428,15 @@ class DailyReportController extends BaseApiController
                 foreach ($request->shifts as $shiftData) {
                     $shift = $this->shiftForPayload($daily_report, $shiftData);
 
-                    $shift->fill(array_filter([
-                        'post'        => $shiftData['post'] ?? $shift->post,
-                        'start_time'  => $shiftData['start_time'] ?? null,
-                        'end_time'    => $shiftData['end_time'] ?? null,
-                        'description' => $shiftData['description'] ?? null,
-                        'lithologie'  => $shiftData['lithologie'] ?? null,
-                    ], fn($value) => $value !== null));
+                    // نبني مصفوفة التحديث مع الاحتفاظ بالقيم الموجودة عند عدم الإرسال
+                    $fillData = [];
+                    if (isset($shiftData['post']))        $fillData['post']        = $shiftData['post'];
+                    if (array_key_exists('start_time',  $shiftData)) $fillData['start_time']  = $shiftData['start_time'];
+                    if (array_key_exists('end_time',    $shiftData)) $fillData['end_time']    = $shiftData['end_time'];
+                    if (array_key_exists('description', $shiftData)) $fillData['description'] = $shiftData['description'];
+                    if (array_key_exists('lithologie',  $shiftData)) $fillData['lithologie']  = $shiftData['lithologie'];
+
+                    $shift->fill($fillData);
                     $shift->report_id = $daily_report->id;
                     $shift->save();
 
@@ -611,9 +613,16 @@ class DailyReportController extends BaseApiController
             return $report->shifts()->whereKey($shiftId)->firstOrFail();
         }
 
-        return $report->shifts()->firstOrNew([
-            'post' => $shiftData['post'],
-        ]);
+        // البحث عن مناوبة موجودة بنفس الـ post لهذا التقرير، أو إنشاء كيان جديد
+        $shift = $report->shifts()->where('post', $shiftData['post'])->first();
+
+        if (!$shift) {
+            $shift = new Shift();
+            $shift->report_id = $report->id;
+            $shift->post      = $shiftData['post'];
+        }
+
+        return $shift;
     }
 
     private function applyFlatEmployeeUpdates(DailyReport $report, array $employees): void
@@ -691,7 +700,7 @@ class DailyReportController extends BaseApiController
             'drilling_phase'   => $report->rig?->drilling_phase,
             'total_bha_length' => $report->total_bha_length,
             'workers_count'    => $employees->count(),
-            'employees'        => $employees,
+            //'employees'        => $employees,
         ]);
     }
 
@@ -743,11 +752,6 @@ class DailyReportController extends BaseApiController
             ?? null;
     }
 
-    /**
-     * Flat "employees" updates are skipped when shifts already carry nested employee lists.
-     * Full report payloads often include both; applying flat employees afterward would
-     * overwrite intentional shift-level add/remove changes with stale data.
-     */
     private function shouldApplyFlatEmployeeUpdates(Request $request): bool
     {
         if (!$request->has('employees')) {
@@ -758,10 +762,16 @@ class DailyReportController extends BaseApiController
             return true;
         }
 
-        $nestedEmployeeUpdates = collect($request->input('shifts', []))
+        // إذا كان أي shift يحمل مفتاح employees، نتجاهل الـ flat employees بالكامل
+        $anyShiftHasEmployeesKey = collect($request->input('shifts', []))
             ->contains(fn(array $shift) => array_key_exists('employees', $shift));
 
-        return !$nestedEmployeeUpdates;
+        if ($anyShiftHasEmployeesKey) {
+            return false;
+        }
+
+        // لا يوجد employees في الـ shifts → نطبق الـ flat employees
+        return true;
     }
 
     private function rigDrillingPhaseFrom(Request $request): ?string
