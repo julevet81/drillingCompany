@@ -128,4 +128,66 @@ class RigTest extends TestCase
             ->assertStatus(200)
             ->assertJsonStructure(['data' => ['total', 'drilling', 'fishing', 'stopped']]);
     }
+
+    public function test_rig_detail_returns_data_from_latest_report(): void
+    {
+        $rig = Rig::factory()->create();
+        
+        // Create an equipment
+        $equipment = \App\Models\Equipment::factory()->create([
+            'current_rig_id' => $rig->id,
+            'hours_of_operation' => 10,
+        ]);
+
+        // Create a report from 2 days ago
+        $report1 = \App\Models\DailyReport::factory()->create([
+            'rig_id' => $rig->id,
+            'report_date' => now()->subDays(2)->toDateString(),
+        ]);
+        
+        // Create a report from 1 day ago (the latest report)
+        $report2 = \App\Models\DailyReport::factory()->create([
+            'rig_id' => $rig->id,
+            'report_date' => now()->subDays(1)->toDateString(),
+        ]);
+
+        // Add equipment to report2 (hours_used = 15)
+        \App\Models\DailyReportEquipment::create([
+            'report_id' => $report2->id,
+            'equipment_id' => $equipment->id,
+            'hours_used' => 15,
+            'status' => 'Maintenance',
+        ]);
+
+        // Add employee to shift in report2
+        $shift = \App\Models\Shift::create([
+            'report_id' => $report2->id,
+            'post' => 'post_1',
+            'start_time' => '08:00',
+            'end_time' => '20:00',
+        ]);
+        $position = \App\Models\Position::create(['name' => 'Driller']);
+        $employee = \App\Models\Employee::create([
+            'full_name' => 'John Doe',
+            'position_id' => $position->id,
+            'rig_id' => $rig->id,
+        ]);
+        $shift->employees()->attach($employee->id, ['function' => 'Driller', 'status' => 'onsite']);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/rigs/{$rig->id}")
+            ->assertStatus(200);
+
+        // Verify crew has employee
+        $crew = $response->json('data.crew');
+        $this->assertCount(1, $crew);
+        $this->assertEquals($employee->id, $crew[0]['id']);
+
+        // Verify equipment is from report2 with hours_used = 15 and status = Maintenance
+        $equipments = $response->json('data.equipments');
+        $this->assertCount(1, $equipments);
+        $this->assertEquals($equipment->id, $equipments[0]['id']);
+        $this->assertEquals(15.00, $equipments[0]['hours_of_operation']);
+        $this->assertEquals('Maintenance', $equipments[0]['status']);
+    }
 }

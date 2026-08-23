@@ -112,10 +112,20 @@ class RigController extends BaseApiController
             'rigMaterials.materialType:id,name,unit',
         ]);
 
-        $todayReport = DailyReport::where('rig_id', $rig->id)
-            ->whereDate('report_date', today())
-            ->with(['shifts.employees:id,full_name,photo,position_id', 'shifts.employees.position:id,name'])
+        $lastReport = DailyReport::where('rig_id', $rig->id)
+            ->latest('report_date')
+            ->orderByDesc('id')
             ->first();
+
+        if ($lastReport) {
+            $lastReport->load([
+                'shifts.employees:id,full_name,photo,position_id',
+                'shifts.employees.position:id,name',
+                'reportEquipments.equipment:id,current_rig_id,name,marque,serial_number,photo,hours_of_operation,status',
+                'tools.drillingTool.toolType:id,name',
+                'materialLogs.rigMaterial.materialType:id,name,unit',
+            ]);
+        }
 
         $recentReports = DailyReport::forRig($rig->id)
             ->latest('report_date')
@@ -137,8 +147,8 @@ class RigController extends BaseApiController
             ]);
 
         $crew = collect();
-        if ($todayReport) {
-            foreach ($todayReport->shifts as $shift) {
+        if ($lastReport) {
+            foreach ($lastReport->shifts as $shift) {
                 foreach ($shift->employees as $emp) {
                     $crew->push([
                         'id'       => $emp->id,
@@ -149,6 +159,65 @@ class RigController extends BaseApiController
                     ]);
                 }
             }
+        }
+        $crew = $crew->unique('id')->values();
+
+        $equipments = collect();
+        if ($lastReport && $lastReport->reportEquipments->isNotEmpty()) {
+            foreach ($lastReport->reportEquipments as $re) {
+                if ($re->equipment) {
+                    $eq = $re->equipment;
+                    $eq->hours_of_operation = $re->hours_used !== null ? (float)$re->hours_used : $eq->hours_of_operation;
+                    if ($re->status) {
+                        $eq->status = $re->status;
+                    }
+                    $equipments->push($eq);
+                }
+            }
+        } else {
+            $equipments = $rig->equipments;
+        }
+
+        $drillingTools = collect();
+        if ($lastReport && $lastReport->tools->isNotEmpty()) {
+            foreach ($lastReport->tools as $rt) {
+                if ($rt->drillingTool) {
+                    $dt = $rt->drillingTool;
+                    $dt->total_quantity = $rt->quantity_used;
+                    $drillingTools->push($dt);
+                }
+            }
+        } else {
+            $drillingTools = $rig->drillingTools;
+        }
+
+        $materials = collect();
+        if ($lastReport && $lastReport->materialLogs->isNotEmpty()) {
+            foreach ($lastReport->materialLogs as $ml) {
+                if ($ml->rigMaterial) {
+                    $m = $ml->rigMaterial;
+                    $materials->push([
+                        'id'                => $m->id,
+                        'name'              => $m->materialType?->name,
+                        'unit'              => $m->materialType?->unit,
+                        'quantity'          => (float) $ml->remaining,
+                        'capacity'          => (float) $m->capacity,
+                        'filled_percentage' => $m->capacity > 0 ? round(($ml->remaining / $m->capacity) * 100, 2) : 0,
+                        'is_low'            => $ml->remaining <= ($m->min_threshold ?? ($m->capacity * 0.2)),
+                    ]);
+                }
+            }
+        }
+        if ($materials->isEmpty()) {
+            $materials = $rig->rigMaterials->map(fn($m) => [
+                'id'                => $m->id,
+                'name'              => $m->materialType?->name,
+                'unit'              => $m->materialType?->unit,
+                'quantity'          => (float) $m->quantity,
+                'capacity'          => (float) $m->capacity,
+                'filled_percentage' => $m->filled_percentage,
+                'is_low'            => $m->isLow(),
+            ]);
         }
 
         return $this->success([
@@ -169,20 +238,18 @@ class RigController extends BaseApiController
                 'progress_percentage' => $rig->progress_percentage,
                 'days_remaining'      => $rig->days_remaining,
             ]),
-            'equipments'     => $rig->equipments,
-            'drilling_tools' => $rig->drillingTools,
-            'materials'      => $rig->rigMaterials->map(fn($m) => [
-                'id'                => $m->id,
-                'name'              => $m->materialType?->name,
-                'unit'              => $m->materialType?->unit,
-                'quantity'          => (float) $m->quantity,
-                'capacity'          => (float) $m->capacity,
-                'filled_percentage' => $m->filled_percentage,
-                'is_low'            => $m->isLow(),
-            ]),
-            'crew'           => $crew->unique('id')->values(),
+            'equipments'     => $equipments,
+            'drilling_tools' => $drillingTools,
+            'materials'      => $materials,
+            'crew'           => $crew,
             'recent_reports' => $recentReports,
             'depth_timeline' => $depthTimeline,
+            'last_report'    => $lastReport ? [
+                'id'          => $lastReport->id,
+                'report_date' => $lastReport->report_date->format('Y-m-d'),
+                'depth_end'   => (float) $lastReport->depth_end,
+                'status'      => $lastReport->status,
+            ] : null,
         ]);
     }
 

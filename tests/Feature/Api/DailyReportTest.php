@@ -827,4 +827,52 @@ class DailyReportTest extends TestCase
         ]);
         $this->assertSame(1, \DB::table('employee_shifts')->where('shift_id', $shift->id)->count());
     }
+
+    public function test_equipment_hours_of_operation_records_last_number_not_sum(): void
+    {
+        $equipment = \App\Models\Equipment::factory()->create([
+            'current_rig_id' => $this->rig->id,
+            'hours_of_operation' => 10,
+        ]);
+
+        // 1. Create a daily report with hours_used = 15
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/daily-reports', [
+                'rig_id' => $this->rig->id,
+                'report_date' => now()->toDateString(),
+                'depth_start' => 2000,
+                'depth_end' => 2120,
+                'equipments' => [
+                    [
+                        'equipment_id' => $equipment->id,
+                        'hours_used' => 15,
+                        'status' => 'Operational',
+                    ]
+                ],
+            ])
+            ->assertStatus(201);
+
+        $reportId = $response->json('data.id');
+
+        // The equipment hours should be 15, not 10 + 15 = 25
+        $this->assertEquals(15.00, $equipment->fresh()->hours_of_operation);
+
+        // 2. Update the daily report with hours_used = 22
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$reportId}", [
+                'depth_start' => 2000,
+                'depth_end' => 2120,
+                'equipments' => [
+                    [
+                        'equipment_id' => $equipment->id,
+                        'hours_used' => 22,
+                        'status' => 'Operational',
+                    ]
+                ],
+            ])
+            ->assertStatus(200);
+
+        // The equipment hours should be 22, not 15 + 22 = 37 or other summed values
+        $this->assertEquals(22.00, $equipment->fresh()->hours_of_operation);
+    }
 }
