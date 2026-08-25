@@ -32,7 +32,7 @@ class UpdateDailyReportRequest extends FormRequest
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
             'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
-            'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'], 
+            'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'],
 
             // تعديل موظفي الـ shifts الموجودة
             'shifts'                            => ['nullable', 'array', 'max:2'],
@@ -61,7 +61,7 @@ class UpdateDailyReportRequest extends FormRequest
                         ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
                         ->where('employee_shifts.employee_id', $value)
                         ->where('daily_reports.id', '!=', $report->id)
-                        ->whereDate('daily_reports.report_date', $report->report_date->toDateString())
+                        ->whereDate('daily_reports.report_date', $report->report_date)
                         ->where('daily_reports.rig_id', '!=', $report->rig_id)
                         ->select('daily_reports.rig_id')
                         ->first();
@@ -99,7 +99,7 @@ class UpdateDailyReportRequest extends FormRequest
                         ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
                         ->where('employee_shifts.employee_id', $value)
                         ->where('daily_reports.id', '!=', $report->id)
-                        ->whereDate('daily_reports.report_date', $report->report_date->toDateString())
+                        ->whereDate('daily_reports.report_date', $report->report_date)
                         ->where('daily_reports.rig_id', '!=', $report->rig_id)
                         ->select('daily_reports.rig_id')
                         ->first();
@@ -126,7 +126,7 @@ class UpdateDailyReportRequest extends FormRequest
                         ->join('daily_reports', 'daily_reports.id', '=', 'shifts.report_id')
                         ->where('employee_shifts.employee_id', $value)
                         ->where('daily_reports.id', '!=', $report->id)
-                        ->whereDate('daily_reports.report_date', $report->report_date->toDateString())
+                        ->whereDate('daily_reports.report_date', $report->report_date)
                         ->where('daily_reports.rig_id', '!=', $report->rig_id)
                         ->select('daily_reports.rig_id')
                         ->first();
