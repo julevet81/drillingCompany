@@ -20,6 +20,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 
 class DailyReportController extends BaseApiController
 {
@@ -355,11 +357,25 @@ class DailyReportController extends BaseApiController
         }
 
         DB::transaction(function () use ($request, $daily_report, $drillingPhase) {
-            $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes', 'employees']);
+            Log::info('UPDATE REPORT - all input:', $request->all());
+            Log::info('UPDATE REPORT - validated data:', $request->safe()->all());
 
-            if (array_key_exists('depth_start', $data) && array_key_exists('depth_end', $data)
-                && $data['depth_start'] !== null && $data['depth_end'] !== null) {
-                $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
+            $data = $request->safe()->except([
+                'tools', 'equipments', 'shifts', 'materials', 'rig_status',
+                'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes', 'employees',
+            ]);
+
+            Log::info('UPDATE REPORT - $data after except:', is_array($data) ? $data : $data->toArray());
+
+            // إعادة حساب daily_progress إذا أُرسلت قيمة جديدة لـ depth_start و/أو depth_end
+            // (نعتمد على القيمة الحالية في السجل عند عدم إرسال أحدهما)
+            if (array_key_exists('depth_start', $data) || array_key_exists('depth_end', $data)) {
+                $newDepthStart = array_key_exists('depth_start', $data) ? $data['depth_start'] : $daily_report->depth_start;
+                $newDepthEnd   = array_key_exists('depth_end', $data)   ? $data['depth_end']   : $daily_report->depth_end;
+
+                if ($newDepthStart !== null && $newDepthEnd !== null) {
+                    $data['daily_progress'] = $newDepthEnd - $newDepthStart;
+                }
             }
 
             $daily_report->update($data);
