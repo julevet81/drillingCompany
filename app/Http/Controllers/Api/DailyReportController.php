@@ -357,7 +357,8 @@ class DailyReportController extends BaseApiController
         DB::transaction(function () use ($request, $daily_report, $drillingPhase) {
             $data = $request->safe()->except(['tools', 'equipments', 'shifts', 'materials', 'rig_status', 'drilling_phase', 'rig_drilling_phase', 'rig', 'rig_notes', 'employees']);
 
-            if (isset($data['depth_start'], $data['depth_end'])) {
+            if (array_key_exists('depth_start', $data) && array_key_exists('depth_end', $data)
+                && $data['depth_start'] !== null && $data['depth_end'] !== null) {
                 $data['daily_progress'] = $data['depth_end'] - $data['depth_start'];
             }
 

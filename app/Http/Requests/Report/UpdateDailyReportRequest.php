@@ -16,9 +16,9 @@ class UpdateDailyReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'depth_start'      => ['nullable', 'numeric', 'min:0'],
-            'depth_end'        => ['sometimes', 'numeric', 'gte:depth_start'],
-            'fuel_consumption' => ['nullable', 'numeric', 'min:0'],
+            'depth_start'      => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'depth_end'        => ['sometimes', 'nullable', 'numeric', 'gte:depth_start'],
+            'fuel_consumption' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'incidents'        => ['nullable', 'integer', 'min:0'],
             'npt_hours'        => ['nullable', 'numeric', 'min:0'],
             'npt_cause'        => ['nullable', 'string', 'max:500'],
