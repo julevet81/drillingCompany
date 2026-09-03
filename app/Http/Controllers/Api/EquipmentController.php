@@ -20,7 +20,22 @@ class EquipmentController extends BaseApiController
             $query->whereIn('current_rig_id', $allowedRigIds);
         }
 
-        if ($request->filled('rig_id'))  $query->where('current_rig_id', $request->rig_id);
+        if ($request->filled('rig_id')) {
+            $rigId = $request->integer('rig_id');
+
+            $query->where(function ($query) use ($rigId) {
+                $query->where('current_rig_id', $rigId)
+                    // Older reports may reference equipment whose current rig
+                    // was never persisted. Keep that legacy data visible.
+                    ->orWhere(function ($query) use ($rigId) {
+                        $query->whereNull('current_rig_id')
+                            ->whereHas(
+                                'dailyReportEntries.report',
+                                fn ($query) => $query->where('rig_id', $rigId)
+                            );
+                    });
+            });
+        }
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(fn($q) => $q

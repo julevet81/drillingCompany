@@ -199,7 +199,6 @@ class DailyReportController extends BaseApiController
 
                         // ← تحديث موقع المعدة الحالي ليطابق هذا الـ rig
                         Equipment::where('id', $e['equipment_id'])
-                            ->where('current_rig_id', '!=', $report->rig_id)
                             ->update(['current_rig_id' => $report->rig_id]);
                     }
                 }
@@ -474,7 +473,10 @@ class DailyReportController extends BaseApiController
 
                     // ← الخطوة 2: تحديث ساعات تشغيل المعدة مباشرة بآخر رقم تم تسجيله
                     Equipment::where('id', $e['equipment_id'])
-                        ->update(['hours_of_operation' => $hoursUsed]);
+                        ->update([
+                            'hours_of_operation' => $hoursUsed,
+                            'current_rig_id' => $daily_report->rig_id,
+                        ]);
                 }
             }
 

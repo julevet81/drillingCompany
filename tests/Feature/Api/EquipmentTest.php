@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Equipment;
+use App\Models\DailyReport;
+use App\Models\DailyReportEquipment;
 use App\Models\Rig;
 use App\Models\Role;
 use App\Models\User;
@@ -52,6 +54,26 @@ class EquipmentTest extends TestCase
         $response = $this->actingAs($this->admin, 'sanctum')
             ->getJson("/api/equipments?rig_id={$this->rig->id}");
         $this->assertCount(3, $response->json('data'));
+    }
+
+    public function test_lists_legacy_report_equipment_when_filtering_by_rig(): void
+    {
+        $report = DailyReport::factory()->create(['rig_id' => $this->rig->id]);
+        $equipment = Equipment::factory()->create(['current_rig_id' => null]);
+
+        DailyReportEquipment::create([
+            'report_id' => $report->id,
+            'equipment_id' => $equipment->id,
+            'hours_used' => 12,
+            'status' => 'Operational',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/equipments?rig_id={$this->rig->id}")
+            ->assertStatus(200);
+
+        $this->assertCount(1, $response->json('data'));
+        $this->assertSame($equipment->id, $response->json('data.0.id'));
     }
 
     public function test_can_unassign_equipment_from_rig(): void
