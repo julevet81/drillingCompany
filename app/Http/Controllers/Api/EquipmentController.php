@@ -17,7 +17,7 @@ class EquipmentController extends BaseApiController
         $query = Equipment::with('rig:id,name,code');
 
         if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
-            $query->whereIn('id', $allowedRigIds);
+            $query->whereIn('current_rig_id', $allowedRigIds);
         }
 
         if ($request->filled('rig_id'))  $query->where('current_rig_id', $request->rig_id);
@@ -118,7 +118,7 @@ class EquipmentController extends BaseApiController
     public function stats(): JsonResponse
     {
         return $this->success([
-            'total'       => Equipment::count('name'),
+            'total'       => Equipment::count(),
             'deployed'    => Equipment::whereNotNull('current_rig_id')->count(),
             'unassigned'  => Equipment::whereNull('current_rig_id')->count(),
             'operational' => Equipment::where('status', 'Operational')->count(),

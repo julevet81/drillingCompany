@@ -380,7 +380,15 @@ class DailyReportController extends BaseApiController
 
             $daily_report->update($data);
 
+            // ── تحديث بيانات الريغ ──────────────────────────────────────────
+            // نتحقق إذا كان هذا التقرير هو الأحدث لهذا الريغ
+            $isLatestReport = !DailyReport::where('rig_id', $daily_report->rig_id)
+                ->where('report_date', '>', $daily_report->report_date)
+                ->exists();
+
             $rigUpdate = [];
+
+            // تحديث rig_status وdrilling_phase وrig_notes — دائماً إذا أُرسلت
             if ($request->filled('rig_status')) {
                 $rigUpdate['status'] = $request->rig_status;
             }
@@ -390,6 +398,22 @@ class DailyReportController extends BaseApiController
             if ($request->filled('rig_notes')) {
                 $rigUpdate['notes'] = $request->rig_notes;
             }
+
+            // تحديث current_depth فقط إذا كان هذا التقرير هو الأحدث
+            if ($isLatestReport) {
+                // نأخذ depth_end المحدَّث: إما من $data إذا أُرسل، أو نعيد تحميل السجل
+                if (array_key_exists('depth_end', $data)) {
+                    $latestDepthEnd = $data['depth_end'];
+                } else {
+                    $daily_report->refresh();
+                    $latestDepthEnd = $daily_report->depth_end;
+                }
+
+                if ($latestDepthEnd !== null) {
+                    $rigUpdate['current_depth'] = $latestDepthEnd;
+                }
+            }
+
             if (!empty($rigUpdate)) {
                 $rig = Rig::withTrashed()->findOrFail($daily_report->rig_id);
                 $rig->forceFill($rigUpdate)->save();
