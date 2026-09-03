@@ -44,7 +44,13 @@ class EquipmentController extends BaseApiController
                 ->orWhere('marque', 'like', "%$s%"));
         }
 
-        return $this->paginated($query->latest()->paginate($request->per_page ?? 15));
+        // This endpoint is used to populate equipment selectors. Returning a
+        // partial page makes available equipment disappear when the client
+        // sends a small `per_page` value, so keep all matching equipment in a
+        // single response.
+        $perPage = max(1, (clone $query)->count());
+
+        return $this->paginated($query->latest()->paginate($perPage));
     }
 
     /** POST /api/equipments */

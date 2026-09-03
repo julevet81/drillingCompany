@@ -56,6 +56,18 @@ class EquipmentTest extends TestCase
         $this->assertCount(3, $response->json('data'));
     }
 
+    public function test_index_returns_all_matching_equipment_even_with_a_small_per_page(): void
+    {
+        Equipment::factory()->count(8)->create();
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/equipments?per_page=4')
+            ->assertStatus(200);
+
+        $this->assertCount(8, $response->json('data'));
+        $this->assertSame(8, $response->json('meta.total'));
+    }
+
     public function test_lists_legacy_report_equipment_when_filtering_by_rig(): void
     {
         $report = DailyReport::factory()->create(['rig_id' => $this->rig->id]);
