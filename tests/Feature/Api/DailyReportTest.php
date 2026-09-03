@@ -64,6 +64,28 @@ class DailyReportTest extends TestCase
             ->assertJsonPath('data.daily_progress', '180.00');
     }
 
+    public function test_updating_the_latest_report_depth_updates_the_rig_depth(): void
+    {
+        $report = DailyReport::factory()->create([
+            'rig_id' => $this->rig->id,
+            'report_date' => today(),
+            'depth_start' => 2000,
+            'depth_end' => 2150,
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/daily-reports/{$report->id}", [
+                'depth_start' => 2150,
+                'depth_end' => 2230,
+            ])
+            ->assertStatus(200);
+
+        $this->assertDatabaseHas('rigs', [
+            'id' => $this->rig->id,
+            'current_depth' => 2230,
+        ]);
+    }
+
     public function test_can_update_rig_drilling_phase_when_creating_daily_report(): void
     {
         $this->actingAs($this->admin, 'sanctum')
