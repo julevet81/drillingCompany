@@ -831,7 +831,7 @@ class DailyReportTest extends TestCase
     public function test_equipment_hours_of_operation_records_last_number_not_sum(): void
     {
         $equipment = \App\Models\Equipment::factory()->create([
-            'current_rig_id' => $this->rig->id,
+            'current_rig_id' => null,
             'hours_of_operation' => 10,
         ]);
 
@@ -856,6 +856,11 @@ class DailyReportTest extends TestCase
 
         // The equipment hours should be 15, not 10 + 15 = 25
         $this->assertEquals(15.00, $equipment->fresh()->hours_of_operation);
+        $this->assertSame($this->rig->id, $equipment->fresh()->current_rig_id);
+
+        // Simulate legacy/unassigned data before editing the report. Updating
+        // the report must assign its equipment to the report's rig as well.
+        $equipment->update(['current_rig_id' => null]);
 
         // 2. Update the daily report with hours_used = 22
         $this->actingAs($this->admin, 'sanctum')
@@ -874,5 +879,6 @@ class DailyReportTest extends TestCase
 
         // The equipment hours should be 22, not 15 + 22 = 37 or other summed values
         $this->assertEquals(22.00, $equipment->fresh()->hours_of_operation);
+        $this->assertSame($this->rig->id, $equipment->fresh()->current_rig_id);
     }
 }
