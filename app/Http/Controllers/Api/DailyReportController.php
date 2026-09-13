@@ -31,7 +31,7 @@ class DailyReportController extends BaseApiController
         $query = DailyReport::with([
             'rig:id,name,code,status,drilling_phase,notes',
             'author:id,full_name',
-            'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
+            'reportEquipments.equipment:id,name,marque,serial_number,photo',
             'shifts.employees:id,full_name,photo,position_id',
             'shifts.employees.position:id,name',
             'shifts.mudCharacteristic',
@@ -62,7 +62,6 @@ class DailyReportController extends BaseApiController
                 'name'          => $re->equipment?->name,
                 'marque'        => $re->equipment?->marque,
                 'serial_number' => $re->equipment?->serial_number,
-                'status'        => $re->status,
                 'photo_url'     => $re->equipment?->photo ? asset($re->equipment->photo) : null,
             ]);
 
@@ -189,7 +188,6 @@ class DailyReportController extends BaseApiController
                         DailyReportEquipment::create([
                             'report_id'    => $report->id,
                             'equipment_id' => $e['equipment_id'],
-                            'status'       => $e['status'] ?? 'Operational',
                             'hours_used'   => $hoursUsed,
                         ]);
 
@@ -329,7 +327,7 @@ class DailyReportController extends BaseApiController
                 'rig:id,name,code,status,drilling_phase,notes',
                 'author:id,full_name',
                 'tools.drillingTool.toolType:id,name',
-                'reportEquipments.equipment:id,name,serial_number,status',
+                'reportEquipments.equipment:id,name,serial_number',
                 'shifts.employees:id,full_name,photo,position_id',
                 'shifts.employees.position:id,name',
                 'shifts.mudCharacteristic',
@@ -467,7 +465,6 @@ class DailyReportController extends BaseApiController
                     DailyReportEquipment::create([
                         'report_id'    => $daily_report->id,
                         'equipment_id' => $e['equipment_id'],
-                        'status'       => $e['status'] ?? 'Operational',
                         'hours_used'   => $hoursUsed,
                     ]);
 
@@ -732,7 +729,7 @@ class DailyReportController extends BaseApiController
             'rig.location:id,name',
             'author:id,full_name',
             'tools.drillingTool.toolType:id,name',
-            'reportEquipments.equipment:id,name,serial_number,status',
+            'reportEquipments.equipment:id,name,serial_number',
             'shifts.mudCharacteristic',
             'materialLogs.rigMaterial.materialType:id,name,unit',
         ]);
@@ -854,7 +851,7 @@ class DailyReportController extends BaseApiController
             ->with([
                 'rig:id,name,code,status,drilling_phase,notes',
                 'author:id,full_name',
-                'reportEquipments.equipment:id,name,marque,serial_number,status,photo',
+                'reportEquipments.equipment:id,name,marque,serial_number,photo',
                 'shifts.employees:id,full_name,photo,position_id',
                 'shifts.employees.position:id,name',
                 'shifts.mudCharacteristic',
@@ -878,7 +875,6 @@ class DailyReportController extends BaseApiController
                 'name'          => $re->equipment?->name,
                 'marque'        => $re->equipment?->marque,
                 'serial_number' => $re->equipment?->serial_number,
-                'status'        => $re->status,
                 'photo_url'     => $re->equipment?->photo ? asset($re->equipment->photo) : null,
             ]);
 

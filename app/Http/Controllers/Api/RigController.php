@@ -70,6 +70,7 @@ class RigController extends BaseApiController
             'casing'     => Rig::where('status', 'casing')->count(),
             'dtm'        => Rig::where('status', 'dtm')->count(),
             'developing' => Rig::where('status', 'developing')->count(),
+            'onbase'     => Rig::where('status', 'onbase')->count(),
             'by_status'  => Rig::selectRaw('status, COUNT(*) as count')
                 ->groupBy('status')->pluck('count', 'status'),
         ]);
@@ -121,7 +122,7 @@ class RigController extends BaseApiController
             $lastReport->load([
                 'shifts.employees:id,full_name,photo,position_id',
                 'shifts.employees.position:id,name',
-                'reportEquipments.equipment:id,current_rig_id,name,marque,serial_number,photo,hours_of_operation,status',
+                'reportEquipments.equipment:id,current_rig_id,name,marque,serial_number,photo,hours_of_operation',
                 'tools.drillingTool.toolType:id,name',
                 'materialLogs.rigMaterial.materialType:id,name,unit',
             ]);
@@ -168,9 +169,6 @@ class RigController extends BaseApiController
                 if ($re->equipment) {
                     $eq = $re->equipment;
                     $eq->hours_of_operation = $re->hours_used !== null ? (float)$re->hours_used : $eq->hours_of_operation;
-                    if ($re->status) {
-                        $eq->status = $re->status;
-                    }
                     $equipments->push($eq);
                 }
             }
@@ -295,7 +293,11 @@ class RigController extends BaseApiController
             unlink(public_path($rig->photo));
         }
 
-        $rig->delete();
+        DB::transaction(function () use ($rig) {
+            $rig->dailyReports()->delete();
+            $rig->delete();
+        });
+
         Cache::forget('dashboard:stats');
         Cache::forget('rigs:stats');
 

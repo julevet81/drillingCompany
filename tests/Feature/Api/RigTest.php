@@ -120,6 +120,19 @@ class RigTest extends TestCase
         $this->assertSoftDeleted('rigs', ['id' => $rig->id]);
     }
 
+    public function test_deleting_rig_soft_deletes_its_daily_reports(): void
+    {
+        $rig = Rig::factory()->create();
+        $report = \App\Models\DailyReport::factory()->create(['rig_id' => $rig->id]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->deleteJson("/api/rigs/{$rig->id}")
+            ->assertStatus(200);
+
+        $this->assertSoftDeleted('rigs', ['id' => $rig->id]);
+        $this->assertSoftDeleted('daily_reports', ['id' => $report->id]);
+    }
+
     public function test_get_rig_stats(): void
     {
         Rig::factory()->count(3)->active()->create();

@@ -3010,13 +3010,13 @@
             "RigStatus": {
                 "type": "string",
                 "enum": [
-                    "active",
-                    "paused",
-                    "completed",
+                    "drilling",
+                    "developing",
                     "fishing",
                     "dtm",
                     "casing",
-                    "maintenance"
+                    "stopped",
+                    "onbase"
                 ]
             },
             "RigInput": {

@@ -44,7 +44,6 @@ class StoreDailyReportRequest extends FormRequest
             // Equipment
             'equipments'                  => ['nullable', 'array'],
             'equipments.*.equipment_id'   => ['required', 'exists:equipments,id'],
-            'equipments.*.status'         => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
             'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'],
 
             // Shifts
@@ -139,7 +138,7 @@ class StoreDailyReportRequest extends FormRequest
             ],
             'materials.*.consumed' => ['nullable', 'numeric', 'min:0'],
             'materials.*.added'    => ['nullable', 'numeric', 'min:0'],
-            'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped'],
+            'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped,onbase'],
             'drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig_drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig.drilling_phase' => ['nullable', 'string', 'max:100'],

@@ -51,6 +51,7 @@ class Rig extends Model
         'dtm',
         'casing',
         'stopped',
+        'onbase',
     ];
 
     // ─── Relationships ────────────────────────────────────────────────────────

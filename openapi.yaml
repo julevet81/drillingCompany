@@ -1714,7 +1714,7 @@ components:
 
     RigStatus:
       type: string
-      enum: [drilling, developing, fishing, dtm, casing, stopped]
+      enum: [drilling, developing, fishing, dtm, casing, stopped, onbase]
 
     RigInput:
       type: object

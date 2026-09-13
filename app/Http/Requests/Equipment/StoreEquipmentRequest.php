@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Equipment;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreEquipmentRequest extends FormRequest
 {
@@ -21,7 +20,6 @@ class StoreEquipmentRequest extends FormRequest
             'avatar'             => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'file'               => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp'],
             'hours_of_operation' => ['nullable', 'numeric'],
-            'status'             => ['sometimes', Rule::in(['Operational', 'Maintenance', 'Out_of_Service'])],
         ];
     }
 }

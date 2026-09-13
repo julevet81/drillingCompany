@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('code')->unique()->nullable();
             $table->foreignId('location_id')->nullable()->constrained('locations')->nullOnDelete();
 
-            // Status: active=Drilling/Devloping, paused=Stopped, completed, fishing, dtm, casing
+            // Status: drilling, developing, fishing, dtm, casing, stopped, onbase
             $table->enum('status', [
                 'drilling',
                 'developing',
@@ -23,6 +23,7 @@ return new class extends Migration
                 'dtm',
                 'casing',
                 'stopped',
+                'onbase',
             ])->default('drilling');
 
             $table->decimal('current_depth', 10, 2)->default(0);

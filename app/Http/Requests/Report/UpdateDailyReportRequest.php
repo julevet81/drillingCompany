@@ -31,7 +31,6 @@ class UpdateDailyReportRequest extends FormRequest
 
             'equipments'                => ['nullable', 'array'],
             'equipments.*.equipment_id' => ['required', 'exists:equipments,id'],
-            'equipments.*.status'       => ['nullable', 'in:Operational,Maintenance,Out_of_Service'],
             'equipments.*.hours_used'     => ['nullable', 'numeric', 'min:0'],
 
             // تعديل موظفي الـ shifts الموجودة
@@ -141,7 +140,7 @@ class UpdateDailyReportRequest extends FormRequest
             'employees.*.function'              => ['nullable', 'string', 'max:100'],
             'employees.*.status'                => ['nullable', 'in:onsite,onBase,onLeave'],
 
-            'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped'],
+            'rig_status' => ['nullable', 'in:drilling,developing,fishing,dtm,casing,stopped,onbase'],
             'drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig_drilling_phase' => ['nullable', 'string', 'max:100'],
             'rig.drilling_phase' => ['nullable', 'string', 'max:100'],

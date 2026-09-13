@@ -19,10 +19,11 @@ class Equipment extends Model
         'serial_number',
         'photo',
         'hours_of_operation',
-        'status',
     ];
 
     protected $table = 'equipments';
+
+    protected $hidden = ['status'];
 
     protected $appends = ['photo_url'];
 

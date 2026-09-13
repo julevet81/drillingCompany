@@ -142,8 +142,6 @@ class EquipmentController extends BaseApiController
             'total'       => Equipment::count(),
             'deployed'    => Equipment::whereNotNull('current_rig_id')->count(),
             'unassigned'  => Equipment::whereNull('current_rig_id')->count(),
-            'operational' => Equipment::where('status', 'Operational')->count(),
-            'maintenance' => Equipment::where('status', 'Maintenance')->count(),
         ]);
     }
 }
