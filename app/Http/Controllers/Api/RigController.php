@@ -224,6 +224,7 @@ class RigController extends BaseApiController
             'rig' => array_merge($rig->only([
                 'id',
                 'name',
+                'label',
                 'code',
                 'status',
                 'drilling_phase',

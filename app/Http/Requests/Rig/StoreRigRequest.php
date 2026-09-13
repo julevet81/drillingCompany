@@ -11,6 +11,7 @@ class StoreRigRequest extends FormRequest {
     public function rules(): array {
         return [
             'name'           => ['required','string','max:255'],
+            'label'          => ['nullable','string','max:255'],
             'code'           => ['nullable','string','max:50','unique:rigs,code'],
             'photo'          => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'manager_id'     => ['nullable','exists:users,id'],
@@ -21,7 +22,7 @@ class StoreRigRequest extends FormRequest {
             'drilling_phase' => ['nullable','string','max:100'],
             'start_date'     => ['nullable','date'],
             'end_date'       => ['nullable','date','after_or_equal:start_date'],
-            'notes'          => ['nullable', 'text']
+            'notes'          => ['nullable', 'string', 'max:5000']
         ];
     }
 }

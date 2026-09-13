@@ -16,6 +16,7 @@ class Rig extends Model
 
     protected $fillable = [
         'name',
+        'label',
         'manager_id',
         'code',
         'photo',

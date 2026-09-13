@@ -58,6 +58,7 @@ class RigTest extends TestCase
         $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/rigs', [
                 'name'           => 'HMD-North-01',
+                'label'          => 'North Field',
                 'code'           => 'RIG-001',
                 'location_id'    => $location->id,
                 'target_depth'   => 4200,
@@ -66,6 +67,7 @@ class RigTest extends TestCase
             ])
             ->assertStatus(201)
             ->assertJsonPath('data.name', 'HMD-North-01')
+            ->assertJsonPath('data.label', 'North Field')
             ->assertJsonPath('data.drilling_phase', 'Drilling 8½"');
     }
 

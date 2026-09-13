@@ -17,6 +17,7 @@ class RigFactory extends Factory
     {
         return [
             'name' => 'Rig ' . fake()->unique()->bothify('??-###'),
+            'label' => fake()->words(2, true),
             'code' => fake()->unique()->bothify('RIG-###'),
             'location_id' => Location::factory(),
             'status' => 'drilling',

@@ -21,6 +21,7 @@ class UpdateRigRequest extends FormRequest
 
         return [
             'name'           => ['sometimes', 'string', 'max:255'],
+            'label'          => ['nullable', 'string', 'max:255'],
             'code'           => ['sometimes', 'string', 'max:50', Rule::unique('rigs', 'code')->ignore($rigId)],
             'photo'          => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'manager_id'     => ['nullable', 'exists:users,id'],
@@ -31,7 +32,7 @@ class UpdateRigRequest extends FormRequest
             'drilling_phase' => ['nullable', 'string', 'max:100'],
             'start_date'     => ['nullable', 'date'],
             'end_date'       => ['nullable', 'date'],
-            'notes'          => ['nullable', 'text']
+            'notes'          => ['nullable', 'string', 'max:5000']
         ];
     }
 }
