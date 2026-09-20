@@ -37,8 +37,17 @@ class DailyReportController extends BaseApiController
             'shifts.mudCharacteristic',
         ])->withCount(['tools', 'reportEquipments', 'shifts']);
 
-        if ($allowedRigIds = $request->attributes->get('allowed_rig_ids')) {
-            $query->whereIn('id', $allowedRigIds);
+        if ($request->attributes->has('allowed_rig_ids')) {
+            $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+            $userId = $request->user()->id;
+
+            $query->where(function ($q) use ($allowedRigIds, $userId) {
+                $q->where('created_by', $userId);
+
+                if ($allowedRigIds->isNotEmpty()) {
+                    $q->orWhereIn('rig_id', $allowedRigIds);
+                }
+            });
         }
 
         if ($request->filled('date'))   $query->whereDate('report_date', $request->date);

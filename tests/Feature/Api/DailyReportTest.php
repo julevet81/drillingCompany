@@ -20,6 +20,7 @@ class DailyReportTest extends TestCase
     {
         parent::setUp();
         Role::create(['name' => 'Super_Admin']);
+        Role::create(['name' => 'Rig_Manager']);
         Role::create(['name' => 'well_manager']);
 
         $this->admin = User::factory()->create();
@@ -848,6 +849,58 @@ class DailyReportTest extends TestCase
             'employee_id' => $employeeB->id,
         ]);
         $this->assertSame(1, \DB::table('employee_shifts')->where('shift_id', $shift->id)->count());
+    }
+
+    public function test_rig_manager_can_see_reports_they_created(): void
+    {
+        $manager = User::factory()->create();
+        $manager->assignRole('Rig_Manager');
+
+        $otherRig = Rig::factory()->create();
+
+        $ownReport = DailyReport::factory()->create([
+            'rig_id'      => $otherRig->id,
+            'created_by'  => $manager->id,
+            'report_date' => today(),
+        ]);
+
+        DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'report_date' => today()->subDay(),
+        ]);
+
+        $this->actingAs($manager, 'sanctum')
+            ->getJson('/api/daily-reports')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ownReport->id);
+    }
+
+    public function test_rig_manager_can_see_reports_for_managed_rigs(): void
+    {
+        $manager = User::factory()->create();
+        $manager->assignRole('Rig_Manager');
+
+        $managedRig = Rig::factory()->create(['manager_id' => $manager->id]);
+
+        $managedReport = DailyReport::factory()->create([
+            'rig_id'      => $managedRig->id,
+            'created_by'  => $this->admin->id,
+            'report_date' => today(),
+        ]);
+
+        DailyReport::factory()->create([
+            'rig_id'      => $this->rig->id,
+            'created_by'  => $this->admin->id,
+            'report_date' => today()->subDay(),
+        ]);
+
+        $this->actingAs($manager, 'sanctum')
+            ->getJson('/api/daily-reports')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $managedReport->id);
     }
 
     public function test_equipment_hours_of_operation_records_last_number_not_sum(): void
