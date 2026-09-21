@@ -109,6 +109,7 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
         // Per-rig material stock
         Route::get('rig/{rig}',          [MaterialController::class, 'forRig']);
         Route::post('rig/{rig}',         [MaterialController::class, 'setForRig']);
+        Route::delete('rig/{rig}/{rigMaterial}', [MaterialController::class, 'clearStock']);
 
         // Logs for a specific rig-material entry
         Route::get('{rigMaterial}/logs', [MaterialController::class, 'logs']);

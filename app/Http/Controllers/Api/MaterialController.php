@@ -143,6 +143,10 @@ class MaterialController extends BaseApiController
      */
     public function setForRig(Request $request, Rig $rig): JsonResponse
     {
+        if ($response = $this->ensureCanManageRigMaterials($request, $rig)) {
+            return $response;
+        }
+
         $data = $request->validate([
             'material_type_id' => ['required', 'exists:material_types,id'],
             'quantity'         => ['required', 'numeric', 'min:0'],
@@ -155,6 +159,28 @@ class MaterialController extends BaseApiController
         );
 
         return $this->success($rigMaterial->load('materialType'), 'Material updated');
+    }
+
+    /**
+     * DELETE /api/materials/rig/{rig}/{rigMaterial}
+     * Clear stock for a specific material on a rig (quantity → 0)
+     */
+    public function clearStock(Request $request, Rig $rig, RigMaterial $rigMaterial): JsonResponse
+    {
+        if ($response = $this->ensureCanManageRigMaterials($request, $rig)) {
+            return $response;
+        }
+
+        if ($rigMaterial->rig_id !== $rig->id) {
+            return $this->error('This material does not belong to the selected rig.', 422);
+        }
+
+        $rigMaterial->update(['quantity' => 0]);
+
+        return $this->success(
+            $rigMaterial->fresh('materialType:id,name,unit'),
+            'Material stock cleared'
+        );
     }
 
     /**
@@ -172,6 +198,17 @@ class MaterialController extends BaseApiController
     }
 
     // ─── Private ──────────────────────────────────────────────────────────────
+
+    private function ensureCanManageRigMaterials(Request $request, Rig $rig): ?JsonResponse
+    {
+        $allowedRigIds = $request->attributes->get('allowed_rig_ids');
+
+        if ($allowedRigIds !== null && !$allowedRigIds->contains($rig->id)) {
+            return $this->forbidden('You are not authorized to manage materials for this rig');
+        }
+
+        return null;
+    }
 
     private function estimateDays(RigMaterial $m): ?int
     {

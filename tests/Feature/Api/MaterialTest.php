@@ -89,4 +89,46 @@ class MaterialTest extends TestCase
                 'daily_consumption_l', 'avg_days_remaining',
             ]]);
     }
+
+    public function test_can_clear_material_stock_for_rig(): void
+    {
+        $type = MaterialType::where('name', 'Diesel Fuel')->first();
+
+        $rigMaterial = RigMaterial::create([
+            'rig_id'           => $this->rig->id,
+            'material_type_id' => $type->id,
+            'quantity'         => 12500,
+            'capacity'         => 20000,
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->deleteJson("/api/materials/rig/{$this->rig->id}/{$rigMaterial->id}")
+            ->assertOk()
+            ->assertJsonPath('data.quantity', '0.00')
+            ->assertJsonPath('data.capacity', '20000.00')
+            ->assertJsonPath('data.material_type.name', 'Diesel Fuel');
+
+        $this->assertDatabaseHas('rig_materials', [
+            'id'       => $rigMaterial->id,
+            'quantity' => 0,
+            'capacity' => 20000,
+        ]);
+    }
+
+    public function test_cannot_clear_material_stock_for_wrong_rig(): void
+    {
+        $type = MaterialType::where('name', 'Bentonite')->first();
+        $otherRig = Rig::factory()->create();
+
+        $rigMaterial = RigMaterial::create([
+            'rig_id'           => $otherRig->id,
+            'material_type_id' => $type->id,
+            'quantity'         => 500,
+            'capacity'         => 1000,
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->deleteJson("/api/materials/rig/{$this->rig->id}/{$rigMaterial->id}")
+            ->assertStatus(422);
+    }
 }
