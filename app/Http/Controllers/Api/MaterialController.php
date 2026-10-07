@@ -35,6 +35,12 @@ class MaterialController extends BaseApiController
         return $this->created(MaterialType::create($data), 'Material type created');
     }
 
+    public function destroy_type(MaterialType $materialType): JsonResponse
+    {
+        
+        $materialType->delete();
+        return $this->success(null, 'Location deleted');
+    }
     /**
      * GET /api/materials/fuel-stats
      * Aggregated fuel stats for the Fuel Tracking tab (uses Diesel Fuel material type)

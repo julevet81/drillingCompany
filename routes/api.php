@@ -101,6 +101,7 @@ Route::middleware(['auth:sanctum', 'restrict.rig'])->group(function () {
         Route::get('types',              [MaterialController::class, 'types']);
         Route::post('types',             [MaterialController::class, 'storeType'])
             ->middleware('role:Super_Admin');
+        Route::delete('types/{materialType}', [MaterialController::class, 'destroy_type']);
 
         Route::get('fuel-stats',         [MaterialController::class, 'fuelStats']);
         Route::get('fuel-levels',        [MaterialController::class, 'fuelLevels']);
