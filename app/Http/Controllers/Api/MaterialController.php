@@ -39,7 +39,7 @@ class MaterialController extends BaseApiController
     {
         
         $materialType->delete();
-        return $this->success(null, 'Location deleted');
+        return $this->success(null, 'type deleted');
     }
     /**
      * GET /api/materials/fuel-stats
