@@ -28,6 +28,21 @@ class DailyReportTest extends TestCase
         $this->rig = Rig::factory()->create(['current_depth' => 2000]);
     }
 
+    public function test_can_delete_a_draft_daily_report(): void
+    {
+        $report = DailyReport::factory()->create([
+            'rig_id' => $this->rig->id,
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->deleteJson("/api/daily-reports/{$report->id}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Report deleted');
+
+        $this->assertSoftDeleted('daily_reports', ['id' => $report->id]);
+    }
+
     public function test_can_create_daily_report_with_npt(): void
     {
         $this->actingAs($this->admin, 'sanctum')

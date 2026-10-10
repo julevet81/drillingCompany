@@ -585,12 +585,12 @@ class DailyReportController extends BaseApiController
     }
 
     /** DELETE /api/daily-reports/{report} */
-    public function destroy(DailyReport $report): JsonResponse
+    public function destroy(DailyReport $daily_report): JsonResponse
     {
-        if ($report->status === 'approved') {
+        if ($daily_report->status === 'approved') {
             return $this->error('Cannot delete an approved report', 422);
         }
-        $report->delete();
+        $daily_report->delete();
         return $this->success(null, 'Report deleted');
     }
 
